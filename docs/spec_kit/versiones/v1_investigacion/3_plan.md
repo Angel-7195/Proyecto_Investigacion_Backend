@@ -71,9 +71,14 @@ api_investigacion/
 │                           Excepciones de negocio, sin códigos HTTP adentro.
 │
 └── pruebas/
-    └── prueba_capas.php
-                            Prueba los servicios con repositorios falsos,
-                            sin depender de MariaDB.
+    ├── prueba_capas.php
+    │                       Prueba término clave, universidad y línea de investigación.
+    ├── prueba_capas_restantes.php
+    │                       Prueba los servicios de los otros tres recursos con
+    │                       repositorios falsos, sin depender de MariaDB.
+    └── prueba_controladores_restantes.php
+                            Comprueba las respuestas de los otros tres
+                            controladores con servicios simulados.
 
 ```
 
@@ -161,8 +166,9 @@ Con PUT, si falta uno de los campos obligatorios del recurso, el controlador
 responde 422.
 Con PATCH, solamente se validan los campos presentes en el cuerpo. Los que no
 llegan conservan su valor actual.
-El repositorio construye el SET del UPDATE solo con las columnas recibidas
-en el PATCH.
+En PATCH se conservan los valores de los campos no enviados. La capa de
+persistencia aplica únicamente los cambios solicitados cuando construye el
+UPDATE parcial; no se exige al cliente enviar la ficha completa.
 Por ejemplo:
 
 ```json
@@ -351,12 +357,39 @@ El frontend vive en un repositorio separado de la API y se comunica con ella
 
 ```text
 front_php/
-├── index.php          ENRUTA las pantallas y sirve como punto de entrada.
-├── cliente_api.php    Lo ÚNICO que habla con la API por HTTP. Trabaja con
-│                      arrays y respuestas JSON, no con las clases de la API.
-├── vistas/            plantilla (el marco) + inicio, listas, formularios y 404
-└── publico/           Bootstrap descargado + estilos y archivos estáticos
+├── index.php
+│                       PUNTO DE ENTRADA: sirve los archivos estáticos,
+│                       coordina las rutas y conserva las rutas específicas
+│                       de término clave, universidad y línea de investigación.
+├── cliente_api.php
+│                       ÚNICO COMPONENTE que llama a la API mediante HTTP;
+│                       transforma sus respuestas en arrays para las vistas.
+├── rutas_restantes.php
+│                       Rutas de áreas de conocimiento, ODS y áreas de aplicación:
+│                       listar, abrir formulario, crear, PUT, PATCH y retirar.
+├── vistas/
+│   ├── plantilla.php       Estructura común y navegación de los seis recursos.
+│   ├── inicio.php          Panel principal con las seis entidades.
+│   ├── lista.php           Listados de término clave, universidad y línea.
+│   ├── formulario.php      Formularios de esas tres entidades.
+│   ├── crud_restantes.php  Listados y formularios de conocimiento, ODS y aplicación.
+│   └── no_encontrada.php   Pantalla de ruta no encontrada.
+└── publico/
+    ├── bootstrap.min.css
+    └── bootstrap.bundle.min.js
 ```
+
+**Ajuste durante la integración.** El plan original agrupaba todas las rutas
+del frontend en `index.php`. Al integrar los seis CRUD se separaron las rutas
+de los tres recursos restantes en `rutas_restantes.php`, con sus pantallas en
+`vistas/crud_restantes.php`. `index.php` continúa siendo el único punto de
+entrada y delega a ese archivo solamente las rutas que le corresponden.
+
+`crud_restantes.php` comparte elementos visuales y una configuración cerrada
+para esos tres recursos de la v1. No recibe nombres arbitrarios de tablas ni
+realiza operaciones SQL. Las otras tres entidades conservan sus vistas y rutas
+específicas existentes. La razón y las alternativas de este ajuste se registran
+en `4_research.md`, decisión **D-v1-11**.
 
 Aunque API y frontend están escritos en PHP, no comparten modelos, servicios
 ni repositorios.

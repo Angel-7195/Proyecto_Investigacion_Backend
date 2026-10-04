@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/IServicioObjetivoDesarrolloSostenible.php';
+require_once __DIR__ . '/../repositorios/IRepositorioObjetivoDesarrolloSostenible.php';
+require_once __DIR__ . '/../excepciones/NoEncontradoExcepcion.php';
+
 class ServicioObjetivoDesarrolloSostenible implements IServicioObjetivoDesarrolloSostenible
 {
     private IRepositorioObjetivoDesarrolloSostenible $repositorio;
@@ -16,23 +20,50 @@ class ServicioObjetivoDesarrolloSostenible implements IServicioObjetivoDesarroll
         return $this->repositorio->listar();
     }
 
-    public function obtenerPorId(int $id): ?ObjetivoDesarrolloSostenible
+    public function obtenerPorId(int $id): ObjetivoDesarrolloSostenible
     {
-        return $this->repositorio->obtenerPorId($id);
+        $registro = $this->repositorio->obtenerPorId($id);
+        if ($registro === null) {
+            throw new NoEncontradoExcepcion('No existe un objetivo activo con el id solicitado.');
+        }
+        return $registro;
     }
 
-    public function crear(ObjetivoDesarrolloSostenible $objetivo): void
+    public function crear(ObjetivoDesarrolloSostenible $registro): ObjetivoDesarrolloSostenible
     {
-        $this->repositorio->crear($objetivo);
+        $this->repositorio->crear($registro);
+        return $registro;
     }
 
-    public function actualizar(ObjetivoDesarrolloSostenible $objetivo): void
+    public function reemplazar(int $id, array $datos): int
     {
-        $this->repositorio->actualizar($objetivo);
+        $filas = $this->repositorio->reemplazar($id, $datos);
+        if ($filas === 0) {
+            throw new NoEncontradoExcepcion('No existe un objetivo activo con el id solicitado.');
+        }
+        return $filas;
     }
 
-    public function eliminar(int $id): void
+    public function actualizar(int $id, array $datos): int
     {
-        $this->repositorio->eliminar($id);
+        if ($datos === []) {
+            throw new InvalidArgumentException(
+                'No se envió ningún campo para actualizar.'
+            );
+        }
+        $filas = $this->repositorio->actualizar($id, $datos);
+        if ($filas === 0) {
+            throw new NoEncontradoExcepcion('No existe un objetivo activo con el id solicitado.');
+        }
+        return $filas;
+    }
+
+    public function retirar(int $id): int
+    {
+        $filas = $this->repositorio->retirar($id);
+        if ($filas === 0) {
+            throw new NoEncontradoExcepcion('No existe un objetivo activo con el id solicitado.');
+        }
+        return $filas;
     }
 }
