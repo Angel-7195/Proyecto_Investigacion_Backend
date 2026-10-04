@@ -297,3 +297,45 @@ Hasta que esa carga esté incorporada y comprobada, el requisito de datos
 iniciales de `universidad` no puede considerarse terminado.
 
 **Estado:** vigente.
+
+## D-v1-11 — Separar las rutas y las vistas del frontend durante la integración
+
+**Contexto.** El plan inicial situaba el enrutamiento del frontend en
+`front_php/index.php` y organizaba las pantallas dentro de `vistas/`. Durante
+la integración del trabajo de los dos integrantes se completaron los seis
+CRUD: tres ya disponían de rutas y vistas propias y los otros tres requerían
+sus pantallas de creación, edición y retiro. Concentrarlo todo en `index.php`
+habría ampliado el archivo y dificultado revisar cambios independientes.
+
+**Alternativas.** (a) Incorporar todas las rutas y formularios adicionales
+directamente en `index.php` y en las vistas existentes. (b) Mantener `index.php`
+como punto de entrada y separar las rutas y pantallas de los tres recursos
+integrados en archivos auxiliares específicos.
+
+**Decisión: (b).** Se agregó `front_php/rutas_restantes.php` para atender las
+rutas CRUD de `area_conocimiento`, `objetivo_desarrollo_sostenible` y
+`area_aplicacion`; sus listados y formularios se agruparon en
+`front_php/vistas/crud_restantes.php`. `index.php` continúa coordinando las
+rutas del frontend y conserva las de `termino_clave`, `universidad` y
+`linea_investigacion`. `vistas/inicio.php` y `vistas/plantilla.php` se ampliaron
+para ofrecer acceso a los seis recursos.
+
+La configuración de `crud_restantes.php` enumera explícitamente estos tres
+recursos y sus campos: **no es un CRUD genérico que acceda a tablas
+arbitrarias**. `cliente_api.php` continúa siendo el único componente del
+frontend que realiza las peticiones HTTP a la API. No se añadieron conexiones
+PDO ni credenciales de MariaDB al frontend.
+
+**Consecuencias.** Se añadieron dos archivos y una delegación desde
+`index.php`, pero las responsabilidades previstas, los contratos HTTP y los
+requisitos de la v1 no cambiaron. La integración puede revisarse por partes
+y resulta más fácil conservar los CRUD ya existentes. Como contrapartida,
+se deben mantener coherentes los enlaces y las rutas distribuidas, y el árbol
+real de archivos debe quedar reflejado en `3_plan.md`.
+
+**Comprobación realizada.** Se probaron desde el navegador las operaciones
+CRUD de los seis recursos y el rechazo de identificadores duplicados. Las
+pruebas automatizadas con una API simulada no sustituyen las comprobaciones
+pendientes de cierre, como ejecutar el quickstart completo desde cero.
+
+**Estado:** vigente.

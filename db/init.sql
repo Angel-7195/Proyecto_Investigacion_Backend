@@ -529,6 +529,21 @@ INSERT INTO area_aplicacion (id, nombre) VALUES
     (20, 'Actividades de los hogares en calidad de empleadores'),
     (21, 'Actividades de organizaciones y entidades extraterritoriales');
 
+
+-- universidad: 6 registros iniciales de ejemplo.
+-- Incorporados por el equipo porque el SQL entregado
+-- no contiene los seis registros mencionados en el módulo.
+-- No corresponden a datos oficiales suministrados por el profesor.
+
+INSERT INTO universidad (id, nombre, tipo, ciudad) VALUES
+    (1, 'Universidad de Antioquia', 'Pública', 'Medellín'),
+    (2, 'Universidad Nacional de Colombia', 'Pública', 'Bogotá'),
+    (3, 'Universidad del Valle', 'Pública', 'Cali'),
+    (4, 'Universidad Industrial de Santander', 'Pública', 'Bucaramanga'),
+    (5, 'Universidad EAFIT', 'Privada', 'Medellín'),
+    (6, 'Universidad de los Andes', 'Privada', 'Bogotá');
+
+
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ============================================================
