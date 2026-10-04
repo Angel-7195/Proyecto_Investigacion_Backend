@@ -2,9 +2,14 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/../servicios/IServicioObjetivoDesarrolloSostenible.php';
+require_once __DIR__ . '/../excepciones/NoEncontradoExcepcion.php';
+require_once __DIR__ . '/../excepciones/ConflictoExcepcion.php';
+
 class ControladorObjetivoDesarrolloSostenible
 {
     private IServicioObjetivoDesarrolloSostenible $servicio;
+    private const CAMPOS_TEXTO = ['nombre' => 60, 'categoria' => 45];
 
     public function __construct(IServicioObjetivoDesarrolloSostenible $servicio)
     {
@@ -13,137 +18,214 @@ class ControladorObjetivoDesarrolloSostenible
 
     public function listar(): void
     {
-        $datos = $this->servicio->listar();
-
-        if ($datos === []) {
-            http_response_code(204);
-            return;
+        try {
+            $registros = $this->servicio->listar();
+            if ($registros === []) {
+                http_response_code(204);
+                return;
+            }
+            $datos = array_map(
+                static fn(ObjetivoDesarrolloSostenible $registro): array => $registro->toArray(),
+                $registros
+            );
+            $this->responder(200, [
+                'recurso' => 'objetivo_desarrollo_sostenible',
+                'total' => count($datos),
+                'datos' => $datos,
+            ]);
+        } catch (Throwable $excepcion) {
+            $this->errorInterno();
         }
-
-        http_response_code(200);
-
-        echo json_encode([
-            'recurso' => 'objetivo_desarrollo_sostenible',
-            'total' => count($datos),
-            'datos' => array_map(
-                fn(ObjetivoDesarrolloSostenible $objetivo) => $objetivo->toArray(),
-                $datos
-            ),
-        ], JSON_UNESCAPED_UNICODE);
-    }
-
-    public function crear(array $cuerpo): void
-    {
-        $objetivo = new ObjetivoDesarrolloSostenible(
-            (int) $cuerpo['id'],
-            $cuerpo['nombre'],
-            $cuerpo['categoria']
-        );
-
-        $this->servicio->crear($objetivo);
-
-        http_response_code(201);
-
-        echo json_encode([
-            'estado' => 201,
-            'mensaje' => 'Objetivo de desarrollo sostenible creado exitosamente.',
-            'datos' => $objetivo->toArray(),
-        ], JSON_UNESCAPED_UNICODE);
     }
 
     public function obtener(int $id): void
     {
-        $objetivo = $this->servicio->obtenerPorId($id);
+        try {
+            $registro = $this->servicio->obtenerPorId($id);
+            $this->responder(200, $registro->toArray());
+        } catch (NoEncontradoExcepcion $excepcion) {
+            $this->noEncontrado();
+        } catch (Throwable $excepcion) {
+            $this->errorInterno();
+        }
+    }
 
-        if ($objetivo === null) {
-            http_response_code(404);
-
-            echo json_encode([
-                'estado' => 404,
-                'mensaje' => 'Objetivo de desarrollo sostenible no encontrado.',
-            ], JSON_UNESCAPED_UNICODE);
-
+    public function crear(array $cuerpo): void
+    {
+        $errores = $this->validarCuerpo($cuerpo, true, true);
+        if ($errores !== []) {
+            $this->errorValidacion($errores);
             return;
         }
-
-        http_response_code(200);
-
-        echo json_encode(
-            $objetivo->toArray(),
-            JSON_UNESCAPED_UNICODE
-        );
+        try {
+            $registro = new ObjetivoDesarrolloSostenible(
+                $cuerpo['id'],
+                $cuerpo['nombre'],
+                $cuerpo['categoria']
+            );
+            $creado = $this->servicio->crear($registro);
+            $this->responder(201, [
+                'estado' => 201,
+                'mensaje' => 'Objetivo de desarrollo sostenible creado exitosamente.',
+                'datos' => $creado->toArray(),
+            ]);
+        } catch (ConflictoExcepcion $excepcion) {
+            $this->responder(409, [
+                'estado' => 409,
+                'mensaje' => 'Conflicto de datos.',
+                'detalle' => 'Ya existe un objetivo de desarrollo sostenible con esa llave.',
+            ]);
+        } catch (Throwable $excepcion) {
+            $this->errorInterno();
+        }
     }
 
     public function reemplazar(int $id, array $cuerpo): void
     {
-        $objetivo = new ObjetivoDesarrolloSostenible(
-            $id,
-            $cuerpo['nombre'],
-            $cuerpo['categoria']
-        );
-
-        $this->servicio->actualizar($objetivo);
-
-        http_response_code(200);
-
-        echo json_encode([
-            'estado' => 200,
-            'mensaje' => 'Objetivo de desarrollo sostenible reemplazado.',
-            'filasAfectadas' => 1,
-        ], JSON_UNESCAPED_UNICODE);
+        $errores = $this->validarCuerpo($cuerpo, false, true);
+        if ($errores !== []) {
+            $this->errorValidacion($errores);
+            return;
+        }
+        try {
+            $filas = $this->servicio->reemplazar($id, $cuerpo);
+            $this->responder(200, [
+                'estado' => 200,
+                'mensaje' => 'Objetivo de desarrollo sostenible reemplazado.',
+                'filasAfectadas' => $filas,
+            ]);
+        } catch (NoEncontradoExcepcion $excepcion) {
+            $this->noEncontrado();
+        } catch (Throwable $excepcion) {
+            $this->errorInterno();
+        }
     }
 
     public function actualizar(int $id, array $cuerpo): void
     {
-        if ($cuerpo === []) {
-            throw new InvalidArgumentException(
-                'No se envió ningún campo para actualizar.'
-            );
-        }
-
-        $objetivoActual = $this->servicio->obtenerPorId($id);
-
-        if ($objetivoActual === null) {
-            http_response_code(404);
-
-            echo json_encode([
-                'estado' => 404,
-                'mensaje' => 'Objetivo de desarrollo sostenible no encontrado.',
-            ], JSON_UNESCAPED_UNICODE);
-
+        $errores = $this->validarCuerpo($cuerpo, false, false);
+        if ($errores !== []) {
+            $this->errorValidacion($errores);
             return;
         }
-
-        $nombre = $cuerpo['nombre'] ?? $objetivoActual->getNombre();
-        $categoria = $cuerpo['categoria'] ?? $objetivoActual->getCategoria();
-
-        $objetivo = new ObjetivoDesarrolloSostenible(
-            $id,
-            $nombre,
-            $categoria
-        );
-
-        $this->servicio->actualizar($objetivo);
-
-        http_response_code(200);
-
-        echo json_encode([
-            'estado' => 200,
-            'mensaje' => 'Objetivo de desarrollo sostenible actualizado.',
-            'filasAfectadas' => 1,
-        ], JSON_UNESCAPED_UNICODE);
+        try {
+            $filas = $this->servicio->actualizar($id, $cuerpo);
+            $this->responder(200, [
+                'estado' => 200,
+                'mensaje' => 'Objetivo de desarrollo sostenible actualizado.',
+                'filasAfectadas' => $filas,
+            ]);
+        } catch (InvalidArgumentException $excepcion) {
+            $this->responder(400, [
+                'estado' => 400,
+                'mensaje' => 'Parámetros inválidos.',
+                'detalle' => $excepcion->getMessage(),
+            ]);
+        } catch (NoEncontradoExcepcion $excepcion) {
+            $this->noEncontrado();
+        } catch (Throwable $excepcion) {
+            $this->errorInterno();
+        }
     }
 
-    public function eliminar(int $id): void
+    public function retirar(int $id): void
     {
-        $this->servicio->eliminar($id);
+        try {
+            $filas = $this->servicio->retirar($id);
+            $this->responder(200, [
+                'estado' => 200,
+                'mensaje' => 'Objetivo de desarrollo sostenible retirado.',
+                'filasAfectadas' => $filas,
+            ]);
+        } catch (NoEncontradoExcepcion $excepcion) {
+            $this->noEncontrado();
+        } catch (Throwable $excepcion) {
+            $this->errorInterno();
+        }
+    }
 
-        http_response_code(200);
+    private function validarCuerpo(
+        array $cuerpo,
+        bool $incluyeId,
+        bool $obligatorios
+    ): array {
+        $permitidos = ['nombre', 'categoria'];
+        if ($incluyeId) {
+            $permitidos[] = 'id';
+        }
+        $errores = [];
+        foreach (array_keys($cuerpo) as $campo) {
+            if (!in_array($campo, $permitidos, true)) {
+                $errores[] = "El campo {$campo} no está permitido.";
+            }
+        }
 
-        echo json_encode([
-            'estado' => 200,
-            'mensaje' => 'Objetivo de desarrollo sostenible retirado.',
-            'filasAfectadas' => 1,
-        ], JSON_UNESCAPED_UNICODE);
+        if ($incluyeId) {
+            if (!array_key_exists('id', $cuerpo)) {
+                $errores[] = 'El campo id es obligatorio.';
+            } elseif (!is_int($cuerpo['id'])) {
+                $errores[] = 'El campo id debe ser un entero.';
+            }
+        }
+
+        foreach (self::CAMPOS_TEXTO as $campo => $maximo) {
+            if (!array_key_exists($campo, $cuerpo)) {
+                if ($obligatorios) {
+                    $errores[] = "El campo {$campo} es obligatorio.";
+                }
+                continue;
+            }
+            $valor = $cuerpo[$campo];
+            if (!is_string($valor) || trim($valor) === '' || $this->largo($valor) > $maximo) {
+                $errores[] = "El campo {$campo} debe ser un texto de 1 a {$maximo} caracteres.";
+            }
+        }
+        return $errores;
+    }
+
+    private function largo(string $texto): int
+    {
+        return function_exists('mb_strlen')
+            ? mb_strlen($texto, 'UTF-8')
+            : iconv_strlen($texto, 'UTF-8');
+    }
+
+    private function errorValidacion(array $errores): void
+    {
+        $this->responder(422, [
+            'estado' => 422,
+            'mensaje' => 'Datos inválidos.',
+            'errores' => $errores,
+        ]);
+    }
+
+    private function noEncontrado(): void
+    {
+        $this->responder(404, [
+            'estado' => 404,
+            'mensaje' => 'Objetivo de desarrollo sostenible no encontrado.',
+            'detalle' => 'No existe un objetivo activo con el id solicitado.',
+        ]);
+    }
+
+    private function errorInterno(): void
+    {
+        $this->responder(500, [
+            'estado' => 500,
+            'mensaje' => 'Error interno del servidor.',
+            'detalle' => 'Ocurrió un problema al procesar la solicitud.',
+        ]);
+    }
+
+    private function responder(int $estado, array $contenido): void
+    {
+        http_response_code($estado);
+        if (PHP_SAPI !== 'cli') {
+            header('Content-Type: application/json; charset=utf-8');
+        }
+        echo json_encode(
+            $contenido,
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+        );
     }
 }
