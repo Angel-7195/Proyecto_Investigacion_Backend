@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/../modelos/AreaAplicacion.php';
+require_once __DIR__ . '/../../modelos/AreaAplicacion.php';
 
 interface IServicioAreaAplicacion
 {

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/../servicios/IServicioAreaConocimiento.php';
+require_once __DIR__ . '/../servicios/Servicios_AreaConocimiento/IServicioAreaConocimiento.php';
 require_once __DIR__ . '/../excepciones/NoEncontradoExcepcion.php';
 require_once __DIR__ . '/../excepciones/ConflictoExcepcion.php';
 

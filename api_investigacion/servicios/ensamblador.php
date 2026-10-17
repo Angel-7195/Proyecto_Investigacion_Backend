@@ -7,10 +7,10 @@ declare(strict_types=1);
 // ================================================================
 
 require_once __DIR__ . '/../modelos/AreaConocimiento.php';
-require_once __DIR__ . '/../repositorios/IRepositorioAreaConocimiento.php';
-require_once __DIR__ . '/../repositorios/RepositorioAreaConocimientoMariaDB.php';
-require_once __DIR__ . '/IServicioAreaConocimiento.php';
-require_once __DIR__ . '/ServicioAreaConocimiento.php';
+require_once __DIR__ . '/../repositorios/Repositorios_AreaConocimiento/IRepositorioAreaConocimiento.php';
+require_once __DIR__ . '/../repositorios/Repositorios_AreaConocimiento/RepositorioAreaConocimientoMariaDB.php';
+require_once __DIR__ . '/Servicios_AreaConocimiento/IServicioAreaConocimiento.php';
+require_once __DIR__ . '/Servicios_AreaConocimiento/ServicioAreaConocimiento.php';
 require_once __DIR__ . '/../controladores/ControladorAreaConocimiento.php';
 
 // ================================================================
@@ -18,10 +18,10 @@ require_once __DIR__ . '/../controladores/ControladorAreaConocimiento.php';
 // ================================================================
 
 require_once __DIR__ . '/../modelos/ObjetivoDesarrolloSostenible.php';
-require_once __DIR__ . '/../repositorios/IRepositorioObjetivoDesarrolloSostenible.php';
-require_once __DIR__ . '/../repositorios/RepositorioObjetivoDesarrolloSostenibleMariaDB.php';
-require_once __DIR__ . '/IServicioObjetivoDesarrolloSostenible.php';
-require_once __DIR__ . '/ServicioObjetivoDesarrolloSostenible.php';
+require_once __DIR__ . '/../repositorios/Repositorios_ObjetivoDesarrolloSostenible/IRepositorioObjetivoDesarrolloSostenible.php';
+require_once __DIR__ . '/../repositorios/Repositorios_ObjetivoDesarrolloSostenible/RepositorioObjetivoDesarrolloSostenibleMariaDB.php';
+require_once __DIR__ . '/Servicios_ObjetivoDesarrolloSostenible/IServicioObjetivoDesarrolloSostenible.php';
+require_once __DIR__ . '/Servicios_ObjetivoDesarrolloSostenible/ServicioObjetivoDesarrolloSostenible.php';
 require_once __DIR__ . '/../controladores/ControladorObjetivoDesarrolloSostenible.php';
 
 // ================================================================
@@ -29,26 +29,26 @@ require_once __DIR__ . '/../controladores/ControladorObjetivoDesarrolloSostenibl
 // ================================================================
 
 require_once __DIR__ . '/../modelos/AreaAplicacion.php';
-require_once __DIR__ . '/../repositorios/IRepositorioAreaAplicacion.php';
-require_once __DIR__ . '/../repositorios/RepositorioAreaAplicacionMariaDB.php';
-require_once __DIR__ . '/IServicioAreaAplicacion.php';
-require_once __DIR__ . '/ServicioAreaAplicacion.php';
+require_once __DIR__ . '/../repositorios/Repositorios_AreaAplicacion/IRepositorioAreaAplicacion.php';
+require_once __DIR__ . '/../repositorios/Repositorios_AreaAplicacion/RepositorioAreaAplicacionMariaDB.php';
+require_once __DIR__ . '/Servicios_AreaAplicacion/IServicioAreaAplicacion.php';
+require_once __DIR__ . '/Servicios_AreaAplicacion/ServicioAreaAplicacion.php';
 require_once __DIR__ . '/../controladores/ControladorAreaAplicacion.php';
 
 // ================================================================
 // RECURSOS DE ANGEL
 // ================================================================
 
-require_once __DIR__ . '/../repositorios/RepositorioTerminoClaveMariaDB.php';
-require_once __DIR__ . '/ServicioTerminoClave.php';
+require_once __DIR__ . '/../repositorios/Repositorios_TerminoClave/RepositorioTerminoClaveMariaDB.php';
+require_once __DIR__ . '/Servicios_TerminoClave/ServicioTerminoClave.php';
 require_once __DIR__ . '/../controladores/ControladorTerminoClave.php';
 
-require_once __DIR__ . '/../repositorios/RepositorioUniversidadMariaDB.php';
-require_once __DIR__ . '/ServicioUniversidad.php';
+require_once __DIR__ . '/../repositorios/Repositorios_Universidad/RepositorioUniversidadMariaDB.php';
+require_once __DIR__ . '/Servicios_Universidad/ServicioUniversidad.php';
 require_once __DIR__ . '/../controladores/ControladorUniversidad.php';
 
-require_once __DIR__ . '/../repositorios/RepositorioLineaInvestigacionMariaDB.php';
-require_once __DIR__ . '/ServicioLineaInvestigacion.php';
+require_once __DIR__ . '/../repositorios/Repositorios_LineaInvestigacion/RepositorioLineaInvestigacionMariaDB.php';
+require_once __DIR__ . '/Servicios_LineaInvestigacion/ServicioLineaInvestigacion.php';
 require_once __DIR__ . '/../controladores/ControladorLineaInvestigacion.php';
 
 /**

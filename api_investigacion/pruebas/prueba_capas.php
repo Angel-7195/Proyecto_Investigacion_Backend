@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
-require_once __DIR__ . '/../servicios/ServicioTerminoClave.php';
-require_once __DIR__ . '/../servicios/ServicioUniversidad.php';
-require_once __DIR__ . '/../servicios/ServicioLineaInvestigacion.php';
+require_once __DIR__ . '/../servicios/Servicios_TerminoClave/ServicioTerminoClave.php';
+require_once __DIR__ . '/../servicios/Servicios_Universidad/ServicioUniversidad.php';
+require_once __DIR__ . '/../servicios/Servicios_LineaInvestigacion/ServicioLineaInvestigacion.php';
 require_once __DIR__ . '/../excepciones/ConflictoExcepcion.php';
 
 /**

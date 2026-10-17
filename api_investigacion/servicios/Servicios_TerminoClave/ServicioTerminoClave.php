@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/IServicioTerminoClave.php';
-require_once __DIR__ . '/../repositorios/IRepositorioTerminoClave.php';
-require_once __DIR__ . '/../excepciones/NoEncontradoExcepcion.php';
+require_once __DIR__ . '/../../repositorios/Repositorios_TerminoClave/IRepositorioTerminoClave.php';
+require_once __DIR__ . '/../../excepciones/NoEncontradoExcepcion.php';
 
 class ServicioTerminoClave implements IServicioTerminoClave
 {

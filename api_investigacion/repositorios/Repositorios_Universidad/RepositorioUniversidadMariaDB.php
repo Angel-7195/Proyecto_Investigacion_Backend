@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/IRepositorioUniversidad.php';
-require_once __DIR__ . '/../modelos/Universidad.php';
-require_once __DIR__ . '/../excepciones/ConflictoExcepcion.php';
+require_once __DIR__ . '/../../modelos/Universidad.php';
+require_once __DIR__ . '/../../excepciones/ConflictoExcepcion.php';
 
 class RepositorioUniversidadMariaDB implements IRepositorioUniversidad
 {

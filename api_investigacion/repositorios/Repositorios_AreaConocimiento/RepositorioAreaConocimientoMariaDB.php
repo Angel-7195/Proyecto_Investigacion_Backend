@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/IRepositorioObjetivoDesarrolloSostenible.php';
-require_once __DIR__ . '/../excepciones/ConflictoExcepcion.php';
+require_once __DIR__ . '/IRepositorioAreaConocimiento.php';
+require_once __DIR__ . '/../../excepciones/ConflictoExcepcion.php';
 
-class RepositorioObjetivoDesarrolloSostenibleMariaDB implements IRepositorioObjetivoDesarrolloSostenible
+class RepositorioAreaConocimientoMariaDB implements IRepositorioAreaConocimiento
 {
     private PDO $conexion;
 
@@ -17,7 +17,7 @@ class RepositorioObjetivoDesarrolloSostenibleMariaDB implements IRepositorioObje
     public function listar(): array
     {
         $sentencia = $this->conexion->prepare(
-            'SELECT id, nombre, categoria FROM objetivo_desarrollo_sostenible WHERE activo = TRUE ORDER BY id'
+            'SELECT id, gran_area, area, disciplina FROM area_conocimiento WHERE activo = TRUE ORDER BY id'
         );
         $sentencia->execute();
         $registros = [];
@@ -27,32 +27,33 @@ class RepositorioObjetivoDesarrolloSostenibleMariaDB implements IRepositorioObje
         return $registros;
     }
 
-    public function obtenerPorId(int $id): ?ObjetivoDesarrolloSostenible
+    public function obtenerPorId(string $id): ?AreaConocimiento
     {
         $sentencia = $this->conexion->prepare(
-            'SELECT id, nombre, categoria FROM objetivo_desarrollo_sostenible WHERE id = :id AND activo = TRUE'
+            'SELECT id, gran_area, area, disciplina FROM area_conocimiento WHERE id = :id AND activo = TRUE'
         );
         $sentencia->execute([':id' => $id]);
         $fila = $sentencia->fetch(PDO::FETCH_ASSOC);
         return $fila === false ? null : $this->construirModelo($fila);
     }
 
-    public function crear(ObjetivoDesarrolloSostenible $registro): int
+    public function crear(AreaConocimiento $registro): int
     {
         $sentencia = $this->conexion->prepare(
-            'INSERT INTO objetivo_desarrollo_sostenible (id, nombre, categoria, activo) '
-            . 'VALUES (:id, :nombre, :categoria, TRUE)'
+            'INSERT INTO area_conocimiento (id, gran_area, area, disciplina, activo) '
+            . 'VALUES (:id, :gran_area, :area, :disciplina, TRUE)'
         );
         try {
             $sentencia->execute([
                 ':id' => $registro->getId(),
-            ':nombre' => $registro->getNombre(),
-            ':categoria' => $registro->getCategoria(),
+            ':gran_area' => $registro->getGranArea(),
+            ':area' => $registro->getArea(),
+            ':disciplina' => $registro->getDisciplina(),
             ]);
         } catch (PDOException $excepcion) {
             if ((int) ($excepcion->errorInfo[1] ?? 0) === 1062) {
                 throw new ConflictoExcepcion(
-                    'Ya existe un objetivo de desarrollo sostenible con esa llave.',
+                    'Ya existe un área de conocimiento con esa llave.',
                     0,
                     $excepcion
                 );
@@ -62,26 +63,28 @@ class RepositorioObjetivoDesarrolloSostenibleMariaDB implements IRepositorioObje
         return $sentencia->rowCount();
     }
 
-    public function reemplazar(int $id, array $datos): int
+    public function reemplazar(string $id, array $datos): int
     {
         $sentencia = $this->conexion->prepare(
-            'UPDATE objetivo_desarrollo_sostenible SET nombre = :nombre,
-                categoria = :categoria '
+            'UPDATE area_conocimiento SET gran_area = :gran_area,
+                area = :area,
+                disciplina = :disciplina '
             . 'WHERE id = :id AND activo = TRUE'
         );
         $sentencia->execute([
             ':id' => $id,
-            ':nombre' => $datos['nombre'],
-            ':categoria' => $datos['categoria'],
+            ':gran_area' => $datos['gran_area'],
+            ':area' => $datos['area'],
+            ':disciplina' => $datos['disciplina'],
         ]);
         // ensamblador.php configura MYSQL_ATTR_FOUND_ROWS para reconocer
         // un PUT válido incluso cuando todos los valores son iguales.
         return $sentencia->rowCount();
     }
 
-    public function actualizar(int $id, array $datos): int
+    public function actualizar(string $id, array $datos): int
     {
-        $permitidos = ['nombre', 'categoria'];
+        $permitidos = ['gran_area', 'area', 'disciplina'];
         $asignaciones = [];
         $parametros = [':id' => $id];
 
@@ -97,29 +100,30 @@ class RepositorioObjetivoDesarrolloSostenibleMariaDB implements IRepositorioObje
             );
         }
         $sentencia = $this->conexion->prepare(
-            'UPDATE objetivo_desarrollo_sostenible SET ' . implode(', ', $asignaciones)
+            'UPDATE area_conocimiento SET ' . implode(', ', $asignaciones)
             . ' WHERE id = :id AND activo = TRUE'
         );
         $sentencia->execute($parametros);
         return $sentencia->rowCount();
     }
 
-    public function retirar(int $id): int
+    public function retirar(string $id): int
     {
         $sentencia = $this->conexion->prepare(
-            'UPDATE objetivo_desarrollo_sostenible SET activo = FALSE '
+            'UPDATE area_conocimiento SET activo = FALSE '
             . 'WHERE id = :id AND activo = TRUE'
         );
         $sentencia->execute([':id' => $id]);
         return $sentencia->rowCount();
     }
 
-    private function construirModelo(array $fila): ObjetivoDesarrolloSostenible
+    private function construirModelo(array $fila): AreaConocimiento
     {
-        return new ObjetivoDesarrolloSostenible(
-            (int) $fila['id'],
-            (string) $fila['nombre'],
-            (string) $fila['categoria']
+        return new AreaConocimiento(
+            $fila['id'],
+            (string) $fila['gran_area'],
+            (string) $fila['area'],
+            (string) $fila['disciplina']
         );
     }
 }

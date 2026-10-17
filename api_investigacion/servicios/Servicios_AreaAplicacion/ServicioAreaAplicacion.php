@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/IServicioAreaAplicacion.php';
-require_once __DIR__ . '/../repositorios/IRepositorioAreaAplicacion.php';
-require_once __DIR__ . '/../excepciones/NoEncontradoExcepcion.php';
+require_once __DIR__ . '/../../repositorios/Repositorios_AreaAplicacion/IRepositorioAreaAplicacion.php';
+require_once __DIR__ . '/../../excepciones/NoEncontradoExcepcion.php';
 
 class ServicioAreaAplicacion implements IServicioAreaAplicacion
 {

@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/IServicioUniversidad.php';
-require_once __DIR__ . '/../repositorios/IRepositorioUniversidad.php';
-require_once __DIR__ . '/../excepciones/NoEncontradoExcepcion.php';
+require_once __DIR__ . '/../../repositorios/Repositorios_Universidad/IRepositorioUniversidad.php';
+require_once __DIR__ . '/../../excepciones/NoEncontradoExcepcion.php';
 
 class ServicioUniversidad implements IServicioUniversidad
 {

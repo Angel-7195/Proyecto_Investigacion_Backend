@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/../modelos/Universidad.php';
+require_once __DIR__ . '/../../modelos/Universidad.php';
 
-interface IServicioUniversidad
+interface IRepositorioUniversidad
 {
     /**
      * @return Universidad[]
      */
-    public function listar(): array;
+    public function obtenerTodos(): array;
 
-    public function obtenerPorId(int $id): Universidad;
+    public function obtenerPorId(int $id): ?Universidad;
 
-    public function crear(Universidad $universidad): Universidad;
+    public function crear(Universidad $universidad): int;
 
     public function reemplazar(
         int $id,

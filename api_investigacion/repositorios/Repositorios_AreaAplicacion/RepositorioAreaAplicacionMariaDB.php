@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/IRepositorioAreaConocimiento.php';
-require_once __DIR__ . '/../excepciones/ConflictoExcepcion.php';
+require_once __DIR__ . '/IRepositorioAreaAplicacion.php';
+require_once __DIR__ . '/../../excepciones/ConflictoExcepcion.php';
 
-class RepositorioAreaConocimientoMariaDB implements IRepositorioAreaConocimiento
+class RepositorioAreaAplicacionMariaDB implements IRepositorioAreaAplicacion
 {
     private PDO $conexion;
 
@@ -17,7 +17,7 @@ class RepositorioAreaConocimientoMariaDB implements IRepositorioAreaConocimiento
     public function listar(): array
     {
         $sentencia = $this->conexion->prepare(
-            'SELECT id, gran_area, area, disciplina FROM area_conocimiento WHERE activo = TRUE ORDER BY id'
+            'SELECT id, nombre FROM area_aplicacion WHERE activo = TRUE ORDER BY id'
         );
         $sentencia->execute();
         $registros = [];
@@ -27,33 +27,31 @@ class RepositorioAreaConocimientoMariaDB implements IRepositorioAreaConocimiento
         return $registros;
     }
 
-    public function obtenerPorId(string $id): ?AreaConocimiento
+    public function obtenerPorId(int $id): ?AreaAplicacion
     {
         $sentencia = $this->conexion->prepare(
-            'SELECT id, gran_area, area, disciplina FROM area_conocimiento WHERE id = :id AND activo = TRUE'
+            'SELECT id, nombre FROM area_aplicacion WHERE id = :id AND activo = TRUE'
         );
         $sentencia->execute([':id' => $id]);
         $fila = $sentencia->fetch(PDO::FETCH_ASSOC);
         return $fila === false ? null : $this->construirModelo($fila);
     }
 
-    public function crear(AreaConocimiento $registro): int
+    public function crear(AreaAplicacion $registro): int
     {
         $sentencia = $this->conexion->prepare(
-            'INSERT INTO area_conocimiento (id, gran_area, area, disciplina, activo) '
-            . 'VALUES (:id, :gran_area, :area, :disciplina, TRUE)'
+            'INSERT INTO area_aplicacion (id, nombre, activo) '
+            . 'VALUES (:id, :nombre, TRUE)'
         );
         try {
             $sentencia->execute([
                 ':id' => $registro->getId(),
-            ':gran_area' => $registro->getGranArea(),
-            ':area' => $registro->getArea(),
-            ':disciplina' => $registro->getDisciplina(),
+            ':nombre' => $registro->getNombre(),
             ]);
         } catch (PDOException $excepcion) {
             if ((int) ($excepcion->errorInfo[1] ?? 0) === 1062) {
                 throw new ConflictoExcepcion(
-                    'Ya existe un área de conocimiento con esa llave.',
+                    'Ya existe un área de aplicación con esa llave.',
                     0,
                     $excepcion
                 );
@@ -63,28 +61,24 @@ class RepositorioAreaConocimientoMariaDB implements IRepositorioAreaConocimiento
         return $sentencia->rowCount();
     }
 
-    public function reemplazar(string $id, array $datos): int
+    public function reemplazar(int $id, array $datos): int
     {
         $sentencia = $this->conexion->prepare(
-            'UPDATE area_conocimiento SET gran_area = :gran_area,
-                area = :area,
-                disciplina = :disciplina '
+            'UPDATE area_aplicacion SET nombre = :nombre '
             . 'WHERE id = :id AND activo = TRUE'
         );
         $sentencia->execute([
             ':id' => $id,
-            ':gran_area' => $datos['gran_area'],
-            ':area' => $datos['area'],
-            ':disciplina' => $datos['disciplina'],
+            ':nombre' => $datos['nombre'],
         ]);
         // ensamblador.php configura MYSQL_ATTR_FOUND_ROWS para reconocer
         // un PUT válido incluso cuando todos los valores son iguales.
         return $sentencia->rowCount();
     }
 
-    public function actualizar(string $id, array $datos): int
+    public function actualizar(int $id, array $datos): int
     {
-        $permitidos = ['gran_area', 'area', 'disciplina'];
+        $permitidos = ['nombre'];
         $asignaciones = [];
         $parametros = [':id' => $id];
 
@@ -100,30 +94,28 @@ class RepositorioAreaConocimientoMariaDB implements IRepositorioAreaConocimiento
             );
         }
         $sentencia = $this->conexion->prepare(
-            'UPDATE area_conocimiento SET ' . implode(', ', $asignaciones)
+            'UPDATE area_aplicacion SET ' . implode(', ', $asignaciones)
             . ' WHERE id = :id AND activo = TRUE'
         );
         $sentencia->execute($parametros);
         return $sentencia->rowCount();
     }
 
-    public function retirar(string $id): int
+    public function retirar(int $id): int
     {
         $sentencia = $this->conexion->prepare(
-            'UPDATE area_conocimiento SET activo = FALSE '
+            'UPDATE area_aplicacion SET activo = FALSE '
             . 'WHERE id = :id AND activo = TRUE'
         );
         $sentencia->execute([':id' => $id]);
         return $sentencia->rowCount();
     }
 
-    private function construirModelo(array $fila): AreaConocimiento
+    private function construirModelo(array $fila): AreaAplicacion
     {
-        return new AreaConocimiento(
-            $fila['id'],
-            (string) $fila['gran_area'],
-            (string) $fila['area'],
-            (string) $fila['disciplina']
+        return new AreaAplicacion(
+            (int) $fila['id'],
+            (string) $fila['nombre']
         );
     }
 }

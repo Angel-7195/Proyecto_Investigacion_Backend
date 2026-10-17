@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/IServicioObjetivoDesarrolloSostenible.php';
-require_once __DIR__ . '/../repositorios/IRepositorioObjetivoDesarrolloSostenible.php';
-require_once __DIR__ . '/../excepciones/NoEncontradoExcepcion.php';
+require_once __DIR__ . '/../../repositorios/Repositorios_ObjetivoDesarrolloSostenible/IRepositorioObjetivoDesarrolloSostenible.php';
+require_once __DIR__ . '/../../excepciones/NoEncontradoExcepcion.php';
 
 class ServicioObjetivoDesarrolloSostenible implements IServicioObjetivoDesarrolloSostenible
 {

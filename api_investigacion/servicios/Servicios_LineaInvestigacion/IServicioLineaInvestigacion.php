@@ -2,21 +2,20 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/../modelos/LineaInvestigacion.php';
+require_once __DIR__ . '/../../modelos/LineaInvestigacion.php';
 
-interface IRepositorioLineaInvestigacion
+interface IServicioLineaInvestigacion
 {
     /** @return LineaInvestigacion[] */
-    public function obtenerTodos(): array;
+    public function listar(): array;
 
-    public function obtenerPorId(int $id): ?LineaInvestigacion;
+    public function obtenerPorId(
+        int $id
+    ): LineaInvestigacion;
 
-    /**
-     * Devuelve el id generado por AUTO_INCREMENT.
-     */
     public function crear(
         LineaInvestigacion $lineaInvestigacion
-    ): int;
+    ): LineaInvestigacion;
 
     public function reemplazar(
         int $id,

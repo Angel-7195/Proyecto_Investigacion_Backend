@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/IRepositorioTerminoClave.php';
-require_once __DIR__ . '/../excepciones/ConflictoExcepcion.php';
+require_once __DIR__ . '/../../excepciones/ConflictoExcepcion.php';
 
 class RepositorioTerminoClaveMariaDB implements IRepositorioTerminoClave
 {

@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/IRepositorioLineaInvestigacion.php';
-require_once __DIR__ . '/../modelos/LineaInvestigacion.php';
+require_once __DIR__ . '/../../modelos/LineaInvestigacion.php';
 
 class RepositorioLineaInvestigacionMariaDB
     implements IRepositorioLineaInvestigacion
