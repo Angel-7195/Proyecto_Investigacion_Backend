@@ -51,6 +51,17 @@ require_once __DIR__ . '/../repositorios/Repositorios_LineaInvestigacion/Reposit
 require_once __DIR__ . '/Servicios_LineaInvestigacion/ServicioLineaInvestigacion.php';
 require_once __DIR__ . '/../controladores/ControladorLineaInvestigacion.php';
 
+// ================================================================
+// GRUPO DE INVESTIGACION — V2
+// ================================================================
+
+require_once __DIR__ . '/../modelos/GrupoInvestigacion.php';
+require_once __DIR__ . '/../repositorios/Repositorios_GrupoInvestigacion/IRepositorioGrupoInvestigacion.php';
+require_once __DIR__ . '/../repositorios/Repositorios_GrupoInvestigacion/RepositorioGrupoInvestigacionMariaDB.php';
+require_once __DIR__ . '/Servicios_GrupoInvestigacion/IServicioGrupoInvestigacion.php';
+require_once __DIR__ . '/Servicios_GrupoInvestigacion/ServicioGrupoInvestigacion.php';
+require_once __DIR__ . '/../controladores/ControladorGrupoInvestigacion.php';
+
 /**
  * Construye la conexión PDO utilizando las variables de entorno.
  */
@@ -149,6 +160,20 @@ function ensamblarControladores(): array
     $controladorLineaInvestigacion =
         new ControladorLineaInvestigacion($servicioLineaInvestigacion);
 
+    // GRUPO DE INVESTIGACION — V2
+    $repositorioGrupoInvestigacion =
+        new RepositorioGrupoInvestigacionMariaDB($pdo);
+
+    // Reutilizamos el repositorio de Universidad creado en la sección de V1
+    // para validar que el identificador de universidad exista y esté activo.
+    $servicioGrupoInvestigacion = new ServicioGrupoInvestigacion(
+        $repositorioGrupoInvestigacion,
+        $repositorioUniversidad
+    );
+
+    $controladorGrupoInvestigacion =
+        new ControladorGrupoInvestigacion($servicioGrupoInvestigacion);
+
     // CONTROLADORES DISPONIBLES
     return [
         'area_conocimiento' => $controladorAreaConocimiento,
@@ -157,5 +182,6 @@ function ensamblarControladores(): array
         'termino_clave' => $controladorTerminoClave,
         'universidad' => $controladorUniversidad,
         'linea_investigacion' => $controladorLineaInvestigacion,
+        'grupo_investigacion' => $controladorGrupoInvestigacion,
     ];
 }

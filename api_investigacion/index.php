@@ -1,18 +1,20 @@
 <?php
 
 /**
- * index.php — Front Controller de la API de Investigación v1.
+ * index.php — Front Controller de la API de Investigación (V1 + V2 en desarrollo).
  *
  * Todas las peticiones HTTP de la API entran por este archivo.
  * Aquí solamente se decide qué controlador debe atender cada ruta.
  *
- * La v1 trabaja con:
+ * Recursos de V1:
  * - area_conocimiento
  * - objetivo_desarrollo_sostenible
  * - area_aplicacion
  * - termino_clave
  * - universidad
  * - linea_investigacion
+ *
+ * Recurso habilitado de V2: grupo_investigacion.
  *
  * Este archivo NO contiene SQL ni reglas de negocio.
  */
@@ -65,7 +67,7 @@ if ($ruta === '/' && $metodo === 'GET') {
     echo json_encode(
         [
             'mensaje' => 'API de Investigación funcionando',
-            'version' => 'v1',
+            'version' => 'v2-en-desarrollo',
             'recursos' => [
                 'area_conocimiento',
                 'objetivo_desarrollo_sostenible',
@@ -73,6 +75,7 @@ if ($ruta === '/' && $metodo === 'GET') {
                 'termino_clave',
                 'universidad',
                 'linea_investigacion',
+                'grupo_investigacion',
             ],
         ],
         JSON_UNESCAPED_UNICODE
@@ -350,6 +353,53 @@ if (
 
     $controladores = ensamblarControladores();
     $controlador = $controladores['linea_investigacion'];
+
+    $clave = (int) $coincidencias[1];
+
+    enrutarFicha(
+        $controlador,
+        $metodo,
+        $clave,
+        $cuerpo
+    );
+
+    return;
+}
+
+// ======================================================================
+// GRUPO DE INVESTIGACION — V2
+// ======================================================================
+
+if ($ruta === '/api/grupo_investigacion') {
+
+    require_once __DIR__ . '/servicios/ensamblador.php';
+
+    $controladores = ensamblarControladores();
+    $controlador = $controladores['grupo_investigacion'];
+
+    if ($metodo === 'GET') {
+        $controlador->listar();
+    } elseif ($metodo === 'POST') {
+        $controlador->crear($cuerpo);
+    } else {
+        responderNoPermitido();
+    }
+
+    return;
+}
+
+if (
+    preg_match(
+        '#^/api/grupo_investigacion/(\d+)$#',
+        $ruta,
+        $coincidencias
+    )
+) {
+
+    require_once __DIR__ . '/servicios/ensamblador.php';
+
+    $controladores = ensamblarControladores();
+    $controlador = $controladores['grupo_investigacion'];
 
     $clave = (int) $coincidencias[1];
 
