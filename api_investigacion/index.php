@@ -14,7 +14,7 @@
  * - universidad
  * - linea_investigacion
  *
- * Recurso habilitado de V2: grupo_investigacion.
+ * Recursos habilitados de V2: grupo_investigacion y semillero.
  *
  * Este archivo NO contiene SQL ni reglas de negocio.
  */
@@ -76,6 +76,7 @@ if ($ruta === '/' && $metodo === 'GET') {
                 'universidad',
                 'linea_investigacion',
                 'grupo_investigacion',
+                'semillero',
             ],
         ],
         JSON_UNESCAPED_UNICODE
@@ -400,6 +401,53 @@ if (
 
     $controladores = ensamblarControladores();
     $controlador = $controladores['grupo_investigacion'];
+
+    $clave = (int) $coincidencias[1];
+
+    enrutarFicha(
+        $controlador,
+        $metodo,
+        $clave,
+        $cuerpo
+    );
+
+    return;
+}
+
+// ======================================================================
+// SEMILLERO — V2
+// ======================================================================
+
+if ($ruta === '/api/semillero') {
+
+    require_once __DIR__ . '/servicios/ensamblador.php';
+
+    $controladores = ensamblarControladores();
+    $controlador = $controladores['semillero'];
+
+    if ($metodo === 'GET') {
+        $controlador->listar();
+    } elseif ($metodo === 'POST') {
+        $controlador->crear($cuerpo);
+    } else {
+        responderNoPermitido();
+    }
+
+    return;
+}
+
+if (
+    preg_match(
+        '#^/api/semillero/(\d+)$#',
+        $ruta,
+        $coincidencias
+    )
+) {
+
+    require_once __DIR__ . '/servicios/ensamblador.php';
+
+    $controladores = ensamblarControladores();
+    $controlador = $controladores['semillero'];
 
     $clave = (int) $coincidencias[1];
 

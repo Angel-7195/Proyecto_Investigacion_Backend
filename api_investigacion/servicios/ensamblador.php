@@ -62,6 +62,17 @@ require_once __DIR__ . '/Servicios_GrupoInvestigacion/IServicioGrupoInvestigacio
 require_once __DIR__ . '/Servicios_GrupoInvestigacion/ServicioGrupoInvestigacion.php';
 require_once __DIR__ . '/../controladores/ControladorGrupoInvestigacion.php';
 
+// ================================================================
+// SEMILLERO — V2
+// ================================================================
+
+require_once __DIR__ . '/../modelos/Semillero.php';
+require_once __DIR__ . '/../repositorios/Repositorios_Semillero/IRepositorioSemillero.php';
+require_once __DIR__ . '/../repositorios/Repositorios_Semillero/RepositorioSemilleroMariaDB.php';
+require_once __DIR__ . '/Servicios_Semillero/IServicioSemillero.php';
+require_once __DIR__ . '/Servicios_Semillero/ServicioSemillero.php';
+require_once __DIR__ . '/../controladores/ControladorSemillero.php';
+
 /**
  * Construye la conexión PDO utilizando las variables de entorno.
  */
@@ -174,6 +185,17 @@ function ensamblarControladores(): array
     $controladorGrupoInvestigacion =
         new ControladorGrupoInvestigacion($servicioGrupoInvestigacion);
 
+    // SEMILLERO — V2
+    // El repositorio de Grupo de Investigación ya está disponible arriba.
+    $repositorioSemillero = new RepositorioSemilleroMariaDB($pdo);
+
+    $servicioSemillero = new ServicioSemillero(
+        $repositorioSemillero,
+        $repositorioGrupoInvestigacion
+    );
+
+    $controladorSemillero = new ControladorSemillero($servicioSemillero);
+
     // CONTROLADORES DISPONIBLES
     return [
         'area_conocimiento' => $controladorAreaConocimiento,
@@ -183,5 +205,6 @@ function ensamblarControladores(): array
         'universidad' => $controladorUniversidad,
         'linea_investigacion' => $controladorLineaInvestigacion,
         'grupo_investigacion' => $controladorGrupoInvestigacion,
+        'semillero' => $controladorSemillero,
     ];
 }
