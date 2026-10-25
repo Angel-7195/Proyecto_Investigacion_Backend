@@ -14,7 +14,7 @@
  * - universidad
  * - linea_investigacion
  *
- * Recursos habilitados de V2: grupo_investigacion y semillero.
+ * Recursos habilitados de V2: grupo_investigacion, semillero y docente.
  *
  * Este archivo NO contiene SQL ni reglas de negocio.
  */
@@ -77,6 +77,7 @@ if ($ruta === '/' && $metodo === 'GET') {
                 'linea_investigacion',
                 'grupo_investigacion',
                 'semillero',
+                'docente',
             ],
         ],
         JSON_UNESCAPED_UNICODE
@@ -455,6 +456,53 @@ if (
         $controlador,
         $metodo,
         $clave,
+        $cuerpo
+    );
+
+    return;
+}
+
+// ======================================================================
+// DOCENTE — V2
+// ======================================================================
+
+if ($ruta === '/api/docente') {
+
+    require_once __DIR__ . '/servicios/ensamblador.php';
+
+    $controladores = ensamblarControladores();
+    $controlador = $controladores['docente'];
+
+    if ($metodo === 'GET') {
+        $controlador->listar();
+    } elseif ($metodo === 'POST') {
+        $controlador->crear($cuerpo);
+    } else {
+        responderNoPermitido();
+    }
+
+    return;
+}
+
+if (
+    preg_match(
+        '#^/api/docente/(\d+)$#',
+        $ruta,
+        $coincidencias
+    )
+) {
+
+    require_once __DIR__ . '/servicios/ensamblador.php';
+
+    $controladores = ensamblarControladores();
+    $controlador = $controladores['docente'];
+
+    $cedula = (int) $coincidencias[1];
+
+    enrutarFicha(
+        $controlador,
+        $metodo,
+        $cedula,
         $cuerpo
     );
 
