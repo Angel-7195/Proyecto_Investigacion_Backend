@@ -1,33 +1,19 @@
-# Mapa de versiones — Módulo de Investigación (PHP)
+# Mapa de versiones — Módulo de Investigación (propuesta para el equipo)
 
-Cada versión entrega **su API y su pantalla**. No hay una versión final que
-«agregue el front» (Artículo 1.1).
+> Este mapa es para el **proyecto de aula del equipo**, no para el ejemplo didáctico `v1_area_conocimiento` del profesor. Antes de reemplazar el mapa existente, revisar y aprobar con el equipo. Estados no comprobados se dejan expresamente por confirmar.
 
-| Versión | Alcance | Estado |
+| Versión | Alcance acumulativo según `modulo_investigacion.md` y `0_METODOLOGIA.md` | Estado |
 |---|---|---|
-| **v1** | `area_conocimiento` de punta a punta: los 5 verbos, el borrado lógico, la pantalla y la prueba de capas | **hecha** |
-| v2 | Las demás tablas sin clave foránea del módulo, cada una con su ruta y su pantalla | pendiente |
-| v3 | Las tablas CON clave foránea: maestro-detalle, y los rechazos de integridad traducidos a 409 | pendiente |
-| v4 | Autenticación (las tablas `usuario`, `rol` y `rol_usuario` ya están creadas) y consultas de varias tablas | pendiente |
+| V1 | CRUD de las **6 tablas sin FK**, API + frontend | Implementación declarada por el equipo; **cierre con criterios y tag por verificar** |
+| V2 | CRUD de las **10 tablas con FK**, desplegables desde API e integridad referencial; regresión de V1 | Spec Kit en borrador, pendiente de compuertas e implementación |
+| V3 | Autenticación JWT y roles; `usuario`, `rol`, `rol_usuario` | Pendiente |
+| V4 | 10 consultas multitabla, dashboard, imagen corporativa, responsive/PWA y publicación | Pendiente |
 
-## Por qué la v1 es `area_conocimiento`
+## Entidades V1
+`area_conocimiento`, `objetivo_desarrollo_sostenible`, `area_aplicacion`, `termino_clave`, `universidad`, `linea_investigacion`.
 
-De las tablas **sin clave foránea** del módulo, es la que más enseña:
+## Entidades V2
+`docente`, `grupo_investigacion`, `semillero`, `participa_grupo`, `participa_semillero`, `grupo_linea`, `semillero_linea`, `ac_linea`, `ods_linea`, `aa_linea`.
 
-- tiene **4 columnas** —suficientes para que el
-  contraste entre PUT y PATCH se note— y **ninguna clave foránea**, así que
-  la v1 no tiene que hablar de integridad referencial todavía;
-- su llave es `id`, un texto:
-  llega lista de la URL, sin conversiones;
-- y arranca **con 218 filas**, así que la pantalla tiene qué
-  mostrar desde el primer arranque.
-
-Las 19 tablas del módulo **se crean todas** en el primer
-arranque: la base es infraestructura dada (Artículo 5). Lo que crece por
-versiones es la API, no el esquema.
-
-## Y el gemelo
-
-[`proyecto_paradigmas_investigacion1`](../../../../proyecto_paradigmas_investigacion1) construye esta
-misma v1 sobre la misma tabla, en Python y PostgreSQL. Compararlos es parte
-del ejercicio: mismo contrato, dos maneras de cumplirlo.
+## Cierre de cada versión
+Criterios de aceptación + regresión completa + revisión humana del checklist + PR y merge a main + tag `vN`. Una versión cerrada no se reabre: los ajustes se documentan en la siguiente.

@@ -1,18 +1,20 @@
 <?php
 
 /**
- * index.php — Front Controller de la API de Investigación v1.
+ * index.php — Front Controller de la API de Investigación (V1 + V2 en desarrollo).
  *
  * Todas las peticiones HTTP de la API entran por este archivo.
  * Aquí solamente se decide qué controlador debe atender cada ruta.
  *
- * La v1 trabaja con:
+ * Recursos de V1:
  * - area_conocimiento
  * - objetivo_desarrollo_sostenible
  * - area_aplicacion
  * - termino_clave
  * - universidad
  * - linea_investigacion
+ *
+ * Recursos habilitados de V2: grupo_investigacion, semillero, docente y participa_grupo.
  *
  * Este archivo NO contiene SQL ni reglas de negocio.
  */
@@ -65,7 +67,7 @@ if ($ruta === '/' && $metodo === 'GET') {
     echo json_encode(
         [
             'mensaje' => 'API de Investigación funcionando',
-            'version' => 'v1',
+            'version' => 'v2-en-desarrollo',
             'recursos' => [
                 'area_conocimiento',
                 'objetivo_desarrollo_sostenible',
@@ -73,6 +75,10 @@ if ($ruta === '/' && $metodo === 'GET') {
                 'termino_clave',
                 'universidad',
                 'linea_investigacion',
+                'grupo_investigacion',
+                'semillero',
+                'docente',
+                'participa_grupo',
             ],
         ],
         JSON_UNESCAPED_UNICODE
@@ -359,6 +365,194 @@ if (
         $clave,
         $cuerpo
     );
+
+    return;
+}
+
+// ======================================================================
+// GRUPO DE INVESTIGACION — V2
+// ======================================================================
+
+if ($ruta === '/api/grupo_investigacion') {
+
+    require_once __DIR__ . '/servicios/ensamblador.php';
+
+    $controladores = ensamblarControladores();
+    $controlador = $controladores['grupo_investigacion'];
+
+    if ($metodo === 'GET') {
+        $controlador->listar();
+    } elseif ($metodo === 'POST') {
+        $controlador->crear($cuerpo);
+    } else {
+        responderNoPermitido();
+    }
+
+    return;
+}
+
+if (
+    preg_match(
+        '#^/api/grupo_investigacion/(\d+)$#',
+        $ruta,
+        $coincidencias
+    )
+) {
+
+    require_once __DIR__ . '/servicios/ensamblador.php';
+
+    $controladores = ensamblarControladores();
+    $controlador = $controladores['grupo_investigacion'];
+
+    $clave = (int) $coincidencias[1];
+
+    enrutarFicha(
+        $controlador,
+        $metodo,
+        $clave,
+        $cuerpo
+    );
+
+    return;
+}
+
+// ======================================================================
+// SEMILLERO — V2
+// ======================================================================
+
+if ($ruta === '/api/semillero') {
+
+    require_once __DIR__ . '/servicios/ensamblador.php';
+
+    $controladores = ensamblarControladores();
+    $controlador = $controladores['semillero'];
+
+    if ($metodo === 'GET') {
+        $controlador->listar();
+    } elseif ($metodo === 'POST') {
+        $controlador->crear($cuerpo);
+    } else {
+        responderNoPermitido();
+    }
+
+    return;
+}
+
+if (
+    preg_match(
+        '#^/api/semillero/(\d+)$#',
+        $ruta,
+        $coincidencias
+    )
+) {
+
+    require_once __DIR__ . '/servicios/ensamblador.php';
+
+    $controladores = ensamblarControladores();
+    $controlador = $controladores['semillero'];
+
+    $clave = (int) $coincidencias[1];
+
+    enrutarFicha(
+        $controlador,
+        $metodo,
+        $clave,
+        $cuerpo
+    );
+
+    return;
+}
+
+// ======================================================================
+// DOCENTE — V2
+// ======================================================================
+
+if ($ruta === '/api/docente') {
+
+    require_once __DIR__ . '/servicios/ensamblador.php';
+
+    $controladores = ensamblarControladores();
+    $controlador = $controladores['docente'];
+
+    if ($metodo === 'GET') {
+        $controlador->listar();
+    } elseif ($metodo === 'POST') {
+        $controlador->crear($cuerpo);
+    } else {
+        responderNoPermitido();
+    }
+
+    return;
+}
+
+if (
+    preg_match(
+        '#^/api/docente/(\d+)$#',
+        $ruta,
+        $coincidencias
+    )
+) {
+
+    require_once __DIR__ . '/servicios/ensamblador.php';
+
+    $controladores = ensamblarControladores();
+    $controlador = $controladores['docente'];
+
+    $cedula = (int) $coincidencias[1];
+
+    enrutarFicha(
+        $controlador,
+        $metodo,
+        $cedula,
+        $cuerpo
+    );
+
+    return;
+}
+
+// ======================================================================
+// PARTICIPA GRUPO — V2 (DOS IDENTIFICADORES)
+// ======================================================================
+
+// Colección: GET /api/participa_grupo y POST /api/participa_grupo.
+if ($ruta === '/api/participa_grupo') {
+    require_once __DIR__ . '/servicios/ensamblador.php';
+
+    $controladores = ensamblarControladores();
+    $controlador = $controladores['participa_grupo'];
+
+    if ($metodo === 'GET') {
+        $controlador->listar();
+    } elseif ($metodo === 'POST') {
+        $controlador->crear($cuerpo);
+    } else {
+        responderNoPermitido();
+    }
+
+    return;
+}
+
+// Ficha: /api/participa_grupo/{docente_cedula}/{grupo_investigacion_id}.
+// Se requieren AMBAS claves, que son enteros positivos.
+if (preg_match('#^/api/participa_grupo/([1-9]\d*)/([1-9]\d*)$#', $ruta, $coincidencias)) {
+    require_once __DIR__ . '/servicios/ensamblador.php';
+
+    $controladores = ensamblarControladores();
+    $controlador = $controladores['participa_grupo'];
+    $cedula = (int) $coincidencias[1];
+    $grupoId = (int) $coincidencias[2];
+
+    if ($metodo === 'GET') {
+        $controlador->obtener($cedula, $grupoId);
+    } elseif ($metodo === 'PUT') {
+        $controlador->reemplazar($cedula, $grupoId, $cuerpo);
+    } elseif ($metodo === 'PATCH') {
+        $controlador->actualizar($cedula, $grupoId, $cuerpo);
+    } elseif ($metodo === 'DELETE') {
+        $controlador->retirar($cedula, $grupoId);
+    } else {
+        responderNoPermitido();
+    }
 
     return;
 }

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/../servicios/IServicioLineaInvestigacion.php';
+require_once __DIR__ . '/../servicios/Servicios_LineaInvestigacion/IServicioLineaInvestigacion.php';
 require_once __DIR__ . '/../excepciones/NoEncontradoExcepcion.php';
 
 class ControladorLineaInvestigacion
