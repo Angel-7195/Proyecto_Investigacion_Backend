@@ -14,7 +14,7 @@
  * - universidad
  * - linea_investigacion
  *
- * Recursos habilitados de V2: grupo_investigacion, semillero y docente.
+ * Recursos habilitados de V2: grupo_investigacion, semillero, docente y participa_grupo.
  *
  * Este archivo NO contiene SQL ni reglas de negocio.
  */
@@ -78,6 +78,7 @@ if ($ruta === '/' && $metodo === 'GET') {
                 'grupo_investigacion',
                 'semillero',
                 'docente',
+                'participa_grupo',
             ],
         ],
         JSON_UNESCAPED_UNICODE
@@ -505,6 +506,53 @@ if (
         $cedula,
         $cuerpo
     );
+
+    return;
+}
+
+// ======================================================================
+// PARTICIPA GRUPO — V2 (DOS IDENTIFICADORES)
+// ======================================================================
+
+// Colección: GET /api/participa_grupo y POST /api/participa_grupo.
+if ($ruta === '/api/participa_grupo') {
+    require_once __DIR__ . '/servicios/ensamblador.php';
+
+    $controladores = ensamblarControladores();
+    $controlador = $controladores['participa_grupo'];
+
+    if ($metodo === 'GET') {
+        $controlador->listar();
+    } elseif ($metodo === 'POST') {
+        $controlador->crear($cuerpo);
+    } else {
+        responderNoPermitido();
+    }
+
+    return;
+}
+
+// Ficha: /api/participa_grupo/{docente_cedula}/{grupo_investigacion_id}.
+// Se requieren AMBAS claves, que son enteros positivos.
+if (preg_match('#^/api/participa_grupo/([1-9]\d*)/([1-9]\d*)$#', $ruta, $coincidencias)) {
+    require_once __DIR__ . '/servicios/ensamblador.php';
+
+    $controladores = ensamblarControladores();
+    $controlador = $controladores['participa_grupo'];
+    $cedula = (int) $coincidencias[1];
+    $grupoId = (int) $coincidencias[2];
+
+    if ($metodo === 'GET') {
+        $controlador->obtener($cedula, $grupoId);
+    } elseif ($metodo === 'PUT') {
+        $controlador->reemplazar($cedula, $grupoId, $cuerpo);
+    } elseif ($metodo === 'PATCH') {
+        $controlador->actualizar($cedula, $grupoId, $cuerpo);
+    } elseif ($metodo === 'DELETE') {
+        $controlador->retirar($cedula, $grupoId);
+    } else {
+        responderNoPermitido();
+    }
 
     return;
 }

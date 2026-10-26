@@ -84,6 +84,17 @@ require_once __DIR__ . '/Servicios_Docente/IServicioDocente.php';
 require_once __DIR__ . '/Servicios_Docente/ServicioDocente.php';
 require_once __DIR__ . '/../controladores/ControladorDocente.php';
 
+// ================================================================
+// PARTICIPA GRUPO — V2 (CLAVE PRIMARIA COMPUESTA)
+// ================================================================
+
+require_once __DIR__ . '/../modelos/ParticipaGrupo.php';
+require_once __DIR__ . '/../repositorios/Repositorios_ParticipaGrupo/IRepositorioParticipaGrupo.php';
+require_once __DIR__ . '/../repositorios/Repositorios_ParticipaGrupo/RepositorioParticipaGrupoMariaDB.php';
+require_once __DIR__ . '/Servicios_ParticipaGrupo/IServicioParticipaGrupo.php';
+require_once __DIR__ . '/Servicios_ParticipaGrupo/ServicioParticipaGrupo.php';
+require_once __DIR__ . '/../controladores/ControladorParticipaGrupo.php';
+
 /**
  * Construye la conexión PDO utilizando las variables de entorno.
  */
@@ -218,6 +229,18 @@ function ensamblarControladores(): array
 
     $controladorDocente = new ControladorDocente($servicioDocente);
 
+    // PARTICIPA GRUPO — V2
+    // Reutilizamos los repositorios ya instanciados de Docente y Grupo.
+    $repositorioParticipaGrupo = new RepositorioParticipaGrupoMariaDB($pdo);
+
+    $servicioParticipaGrupo = new ServicioParticipaGrupo(
+        $repositorioParticipaGrupo,
+        $repositorioDocente,
+        $repositorioGrupoInvestigacion
+    );
+
+    $controladorParticipaGrupo = new ControladorParticipaGrupo($servicioParticipaGrupo);
+
     // CONTROLADORES DISPONIBLES
     return [
         'area_conocimiento' => $controladorAreaConocimiento,
@@ -229,5 +252,6 @@ function ensamblarControladores(): array
         'grupo_investigacion' => $controladorGrupoInvestigacion,
         'semillero' => $controladorSemillero,
         'docente' => $controladorDocente,
+        'participa_grupo' => $controladorParticipaGrupo,
     ];
 }
