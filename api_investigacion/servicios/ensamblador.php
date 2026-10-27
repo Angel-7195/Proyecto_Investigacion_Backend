@@ -95,6 +95,17 @@ require_once __DIR__ . '/Servicios_ParticipaGrupo/IServicioParticipaGrupo.php';
 require_once __DIR__ . '/Servicios_ParticipaGrupo/ServicioParticipaGrupo.php';
 require_once __DIR__ . '/../controladores/ControladorParticipaGrupo.php';
 
+// ================================================================
+// PARTICIPA SEMILLERO — V2 (CLAVE PRIMARIA COMPUESTA)
+// ================================================================
+
+require_once __DIR__ . '/../modelos/ParticipaSemillero.php';
+require_once __DIR__ . '/../repositorios/Repositorios_ParticipaSemillero/IRepositorioParticipaSemillero.php';
+require_once __DIR__ . '/../repositorios/Repositorios_ParticipaSemillero/RepositorioParticipaSemilleroMariaDB.php';
+require_once __DIR__ . '/Servicios_ParticipaSemillero/IServicioParticipaSemillero.php';
+require_once __DIR__ . '/Servicios_ParticipaSemillero/ServicioParticipaSemillero.php';
+require_once __DIR__ . '/../controladores/ControladorParticipaSemillero.php';
+
 /**
  * Construye la conexión PDO utilizando las variables de entorno.
  */
@@ -241,6 +252,18 @@ function ensamblarControladores(): array
 
     $controladorParticipaGrupo = new ControladorParticipaGrupo($servicioParticipaGrupo);
 
+    // PARTICIPA SEMILLERO — V2
+    // Se reutilizan los repositorios de Docente y Semillero ya instanciados.
+    $repositorioParticipaSemillero = new RepositorioParticipaSemilleroMariaDB($pdo);
+
+    $servicioParticipaSemillero = new ServicioParticipaSemillero(
+        $repositorioParticipaSemillero,
+        $repositorioDocente,
+        $repositorioSemillero
+    );
+
+    $controladorParticipaSemillero = new ControladorParticipaSemillero($servicioParticipaSemillero);
+
     // CONTROLADORES DISPONIBLES
     return [
         'area_conocimiento' => $controladorAreaConocimiento,
@@ -253,5 +276,6 @@ function ensamblarControladores(): array
         'semillero' => $controladorSemillero,
         'docente' => $controladorDocente,
         'participa_grupo' => $controladorParticipaGrupo,
+        'participa_semillero' => $controladorParticipaSemillero,
     ];
 }

@@ -14,7 +14,7 @@
  * - universidad
  * - linea_investigacion
  *
- * Recursos habilitados de V2: grupo_investigacion, semillero, docente y participa_grupo.
+ * Recursos habilitados de V2: grupo_investigacion, semillero, docente, participa_grupo y participa_semillero.
  *
  * Este archivo NO contiene SQL ni reglas de negocio.
  */
@@ -79,6 +79,7 @@ if ($ruta === '/' && $metodo === 'GET') {
                 'semillero',
                 'docente',
                 'participa_grupo',
+                'participa_semillero',
             ],
         ],
         JSON_UNESCAPED_UNICODE
@@ -550,6 +551,53 @@ if (preg_match('#^/api/participa_grupo/([1-9]\d*)/([1-9]\d*)$#', $ruta, $coincid
         $controlador->actualizar($cedula, $grupoId, $cuerpo);
     } elseif ($metodo === 'DELETE') {
         $controlador->retirar($cedula, $grupoId);
+    } else {
+        responderNoPermitido();
+    }
+
+    return;
+}
+
+// ======================================================================
+// PARTICIPA SEMILLERO — V2 (DOS IDENTIFICADORES)
+// ======================================================================
+
+// Coleccion: GET y POST sobre /api/participa_semillero.
+if ($ruta === '/api/participa_semillero') {
+    require_once __DIR__ . '/servicios/ensamblador.php';
+
+    $controladores = ensamblarControladores();
+    $controlador = $controladores['participa_semillero'];
+
+    if ($metodo === 'GET') {
+        $controlador->listar();
+    } elseif ($metodo === 'POST') {
+        $controlador->crear($cuerpo);
+    } else {
+        responderNoPermitido();
+    }
+
+    return;
+}
+
+// Ficha: /api/participa_semillero/{docente}/{semillero}.
+// Ambos identificadores son enteros positivos; no se editan mediante PUT/PATCH.
+if (preg_match('#^/api/participa_semillero/([1-9]\d*)/([1-9]\d*)$#', $ruta, $coincidencias)) {
+    require_once __DIR__ . '/servicios/ensamblador.php';
+
+    $controladores = ensamblarControladores();
+    $controlador = $controladores['participa_semillero'];
+    $docenteId = (int) $coincidencias[1];
+    $semilleroId = (int) $coincidencias[2];
+
+    if ($metodo === 'GET') {
+        $controlador->obtener($docenteId, $semilleroId);
+    } elseif ($metodo === 'PUT') {
+        $controlador->reemplazar($docenteId, $semilleroId, $cuerpo);
+    } elseif ($metodo === 'PATCH') {
+        $controlador->actualizar($docenteId, $semilleroId, $cuerpo);
+    } elseif ($metodo === 'DELETE') {
+        $controlador->retirar($docenteId, $semilleroId);
     } else {
         responderNoPermitido();
     }
