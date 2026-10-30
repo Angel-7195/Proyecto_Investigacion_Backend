@@ -106,6 +106,61 @@ require_once __DIR__ . '/Servicios_ParticipaSemillero/IServicioParticipaSemiller
 require_once __DIR__ . '/Servicios_ParticipaSemillero/ServicioParticipaSemillero.php';
 require_once __DIR__ . '/../controladores/ControladorParticipaSemillero.php';
 
+// ================================================================
+// AC LINEA — V2 (CLAVE COMPUESTA)
+// ================================================================
+
+require_once __DIR__ . '/../modelos/AcLinea.php';
+require_once __DIR__ . '/../repositorios/Repositorios_AcLinea/IRepositorioAcLinea.php';
+require_once __DIR__ . '/../repositorios/Repositorios_AcLinea/RepositorioAcLineaMariaDB.php';
+require_once __DIR__ . '/Servicios_AcLinea/IServicioAcLinea.php';
+require_once __DIR__ . '/Servicios_AcLinea/ServicioAcLinea.php';
+require_once __DIR__ . '/../controladores/ControladorAcLinea.php';
+
+// ================================================================
+// ODS LINEA — V2 (CLAVE COMPUESTA)
+// ================================================================
+
+require_once __DIR__ . '/../modelos/OdsLinea.php';
+require_once __DIR__ . '/../repositorios/Repositorios_OdsLinea/IRepositorioOdsLinea.php';
+require_once __DIR__ . '/../repositorios/Repositorios_OdsLinea/RepositorioOdsLineaMariaDB.php';
+require_once __DIR__ . '/Servicios_OdsLinea/IServicioOdsLinea.php';
+require_once __DIR__ . '/Servicios_OdsLinea/ServicioOdsLinea.php';
+require_once __DIR__ . '/../controladores/ControladorOdsLinea.php';
+
+// ================================================================
+// AA LINEA — V2 (CLAVE COMPUESTA)
+// ================================================================
+
+require_once __DIR__ . '/../modelos/AaLinea.php';
+require_once __DIR__ . '/../repositorios/Repositorios_AaLinea/IRepositorioAaLinea.php';
+require_once __DIR__ . '/../repositorios/Repositorios_AaLinea/RepositorioAaLineaMariaDB.php';
+require_once __DIR__ . '/Servicios_AaLinea/IServicioAaLinea.php';
+require_once __DIR__ . '/Servicios_AaLinea/ServicioAaLinea.php';
+require_once __DIR__ . '/../controladores/ControladorAaLinea.php';
+
+// ================================================================
+// GRUPO LINEA — V2 (CLAVE COMPUESTA)
+// ================================================================
+
+require_once __DIR__ . '/../modelos/GrupoLinea.php';
+require_once __DIR__ . '/../repositorios/Repositorios_GrupoLinea/IRepositorioGrupoLinea.php';
+require_once __DIR__ . '/../repositorios/Repositorios_GrupoLinea/RepositorioGrupoLineaMariaDB.php';
+require_once __DIR__ . '/Servicios_GrupoLinea/IServicioGrupoLinea.php';
+require_once __DIR__ . '/Servicios_GrupoLinea/ServicioGrupoLinea.php';
+require_once __DIR__ . '/../controladores/ControladorGrupoLinea.php';
+
+// ================================================================
+// SEMILLERO LINEA — V2 (CLAVE COMPUESTA)
+// ================================================================
+
+require_once __DIR__ . '/../modelos/SemilleroLinea.php';
+require_once __DIR__ . '/../repositorios/Repositorios_SemilleroLinea/IRepositorioSemilleroLinea.php';
+require_once __DIR__ . '/../repositorios/Repositorios_SemilleroLinea/RepositorioSemilleroLineaMariaDB.php';
+require_once __DIR__ . '/Servicios_SemilleroLinea/IServicioSemilleroLinea.php';
+require_once __DIR__ . '/Servicios_SemilleroLinea/ServicioSemilleroLinea.php';
+require_once __DIR__ . '/../controladores/ControladorSemilleroLinea.php';
+
 /**
  * Construye la conexión PDO utilizando las variables de entorno.
  */
@@ -264,6 +319,66 @@ function ensamblarControladores(): array
 
     $controladorParticipaSemillero = new ControladorParticipaSemillero($servicioParticipaSemillero);
 
+    // AC LINEA — V2
+    // Los dos repositorios de V1 ya están creados arriba y filtran activos.
+    $repositorioAcLinea = new RepositorioAcLineaMariaDB($pdo);
+
+    $servicioAcLinea = new ServicioAcLinea(
+        $repositorioAcLinea,
+        $repositorioLineaInvestigacion,
+        $repositorioAreaConocimiento
+    );
+
+    $controladorAcLinea = new ControladorAcLinea($servicioAcLinea);
+
+    // ODS LINEA — V2
+    // Reutiliza los repositorios de LineaInvestigacion y ODS de V1.
+    $repositorioOdsLinea = new RepositorioOdsLineaMariaDB($pdo);
+
+    $servicioOdsLinea = new ServicioOdsLinea(
+        $repositorioOdsLinea,
+        $repositorioLineaInvestigacion,
+        $repositorioObjetivo
+    );
+
+    $controladorOdsLinea = new ControladorOdsLinea($servicioOdsLinea);
+
+    // AA LINEA — V2
+    // Reutiliza AreaAplicacion y LineaInvestigacion, ambos de V1.
+    $repositorioAaLinea = new RepositorioAaLineaMariaDB($pdo);
+
+    $servicioAaLinea = new ServicioAaLinea(
+        $repositorioAaLinea,
+        $repositorioAreaAplicacion,
+        $repositorioLineaInvestigacion
+    );
+
+    $controladorAaLinea = new ControladorAaLinea($servicioAaLinea);
+
+    // GRUPO LINEA — V2
+    // Reutiliza los repositorios de GrupoInvestigacion (V2) y LineaInvestigacion (V1).
+    $repositorioGrupoLinea = new RepositorioGrupoLineaMariaDB($pdo);
+
+    $servicioGrupoLinea = new ServicioGrupoLinea(
+        $repositorioGrupoLinea,
+        $repositorioGrupoInvestigacion,
+        $repositorioLineaInvestigacion
+    );
+
+    $controladorGrupoLinea = new ControladorGrupoLinea($servicioGrupoLinea);
+
+    // SEMILLERO LINEA — V2
+    // Reutiliza los repositorios de Semillero (V2) y LineaInvestigacion (V1).
+    $repositorioSemilleroLinea = new RepositorioSemilleroLineaMariaDB($pdo);
+
+    $servicioSemilleroLinea = new ServicioSemilleroLinea(
+        $repositorioSemilleroLinea,
+        $repositorioSemillero,
+        $repositorioLineaInvestigacion
+    );
+
+    $controladorSemilleroLinea = new ControladorSemilleroLinea($servicioSemilleroLinea);
+
     // CONTROLADORES DISPONIBLES
     return [
         'area_conocimiento' => $controladorAreaConocimiento,
@@ -277,5 +392,10 @@ function ensamblarControladores(): array
         'docente' => $controladorDocente,
         'participa_grupo' => $controladorParticipaGrupo,
         'participa_semillero' => $controladorParticipaSemillero,
+        'ac_linea' => $controladorAcLinea,
+        'ods_linea' => $controladorOdsLinea,
+        'aa_linea' => $controladorAaLinea,
+        'grupo_linea' => $controladorGrupoLinea,
+        'semillero_linea' => $controladorSemilleroLinea,
     ];
 }

@@ -14,7 +14,7 @@
  * - universidad
  * - linea_investigacion
  *
- * Recursos habilitados de V2: grupo_investigacion, semillero, docente, participa_grupo y participa_semillero.
+ * Recursos habilitados de V2: grupo_investigacion, semillero, docente, participa_grupo, participa_semillero, ac_linea, ods_linea, aa_linea, grupo_linea y semillero_linea.
  *
  * Este archivo NO contiene SQL ni reglas de negocio.
  */
@@ -80,6 +80,11 @@ if ($ruta === '/' && $metodo === 'GET') {
                 'docente',
                 'participa_grupo',
                 'participa_semillero',
+                'ac_linea',
+                'ods_linea',
+                'aa_linea',
+                'grupo_linea',
+                'semillero_linea',
             ],
         ],
         JSON_UNESCAPED_UNICODE
@@ -598,6 +603,243 @@ if (preg_match('#^/api/participa_semillero/([1-9]\d*)/([1-9]\d*)$#', $ruta, $coi
         $controlador->actualizar($docenteId, $semilleroId, $cuerpo);
     } elseif ($metodo === 'DELETE') {
         $controlador->retirar($docenteId, $semilleroId);
+    } else {
+        responderNoPermitido();
+    }
+
+    return;
+}
+
+// ======================================================================
+// AC LINEA — V2 (CLAVE COMPUESTA INT + VARCHAR)
+// ======================================================================
+
+// Coleccion: GET y POST sobre /api/ac_linea.
+if ($ruta === '/api/ac_linea') {
+    require_once __DIR__ . '/servicios/ensamblador.php';
+
+    $controladores = ensamblarControladores();
+    $controlador = $controladores['ac_linea'];
+
+    if ($metodo === 'GET') {
+        $controlador->listar();
+    } elseif ($metodo === 'POST') {
+        $controlador->crear($cuerpo);
+    } else {
+        responderNoPermitido();
+    }
+
+    return;
+}
+
+// Ficha: /api/ac_linea/{linea_investigacion}/{area_conocimiento}.
+// Ejemplo: /api/ac_linea/11/1A01 (area_conocimiento es texto).
+if (preg_match('#^/api/ac_linea/([1-9]\d*)/([^/]+)$#', $ruta, $coincidencias)) {
+    require_once __DIR__ . '/servicios/ensamblador.php';
+
+    $controladores = ensamblarControladores();
+    $controlador = $controladores['ac_linea'];
+
+    $lineaId = (int) $coincidencias[1];
+    $areaId = rawurldecode($coincidencias[2]);
+
+    if ($metodo === 'GET') {
+        $controlador->obtener($lineaId, $areaId);
+    } elseif ($metodo === 'DELETE') {
+        $controlador->retirar($lineaId, $areaId);
+    } elseif ($metodo === 'PUT') {
+        // Esta tabla no tiene columnas editables: el controlador responde 405.
+        $controlador->reemplazar($lineaId, $areaId, $cuerpo);
+    } elseif ($metodo === 'PATCH') {
+        $controlador->actualizar($lineaId, $areaId, $cuerpo);
+    } else {
+        responderNoPermitido();
+    }
+
+    return;
+}
+
+// ======================================================================
+// ODS LINEA — V2 (CLAVE COMPUESTA INT + INT)
+// ======================================================================
+
+// Coleccion: GET y POST sobre /api/ods_linea.
+if ($ruta === '/api/ods_linea') {
+    require_once __DIR__ . '/servicios/ensamblador.php';
+
+    $controladores = ensamblarControladores();
+    $controlador = $controladores['ods_linea'];
+
+    if ($metodo === 'GET') {
+        $controlador->listar();
+    } elseif ($metodo === 'POST') {
+        $controlador->crear($cuerpo);
+    } else {
+        responderNoPermitido();
+    }
+
+    return;
+}
+
+// Ficha: /api/ods_linea/{linea_investigacion}/{ods}.
+// Los dos identificadores son enteros positivos e inmutables.
+if (preg_match('#^/api/ods_linea/([1-9]\d*)/([1-9]\d*)$#', $ruta, $coincidencias)) {
+    require_once __DIR__ . '/servicios/ensamblador.php';
+
+    $controladores = ensamblarControladores();
+    $controlador = $controladores['ods_linea'];
+    $lineaId = (int) $coincidencias[1];
+    $odsId = (int) $coincidencias[2];
+
+    if ($metodo === 'GET') {
+        $controlador->obtener($lineaId, $odsId);
+    } elseif ($metodo === 'DELETE') {
+        $controlador->retirar($lineaId, $odsId);
+    } elseif ($metodo === 'PUT') {
+        $controlador->reemplazar($lineaId, $odsId, $cuerpo);
+    } elseif ($metodo === 'PATCH') {
+        $controlador->actualizar($lineaId, $odsId, $cuerpo);
+    } else {
+        responderNoPermitido();
+    }
+
+    return;
+}
+
+// ======================================================================
+// AA LINEA — V2 (CLAVE COMPUESTA INT + INT)
+// ======================================================================
+
+// Coleccion: GET y POST /api/aa_linea.
+if ($ruta === '/api/aa_linea') {
+    require_once __DIR__ . '/servicios/ensamblador.php';
+
+    $controladores = ensamblarControladores();
+    $controlador = $controladores['aa_linea'];
+
+    if ($metodo === 'GET') {
+        $controlador->listar();
+    } elseif ($metodo === 'POST') {
+        $controlador->crear($cuerpo);
+    } else {
+        responderNoPermitido();
+    }
+
+    return;
+}
+
+// Ficha: /api/aa_linea/{area_aplicacion}/{linea_investigacion}.
+// Ambas claves son enteros positivos. No hay campos editables mediante PUT/PATCH.
+if (preg_match('#^/api/aa_linea/([1-9]\d*)/([1-9]\d*)$#', $ruta, $coincidencias)) {
+    require_once __DIR__ . '/servicios/ensamblador.php';
+
+    $controladores = ensamblarControladores();
+    $controlador = $controladores['aa_linea'];
+    $areaAplicacionId = (int) $coincidencias[1];
+    $lineaInvestigacionId = (int) $coincidencias[2];
+
+    if ($metodo === 'GET') {
+        $controlador->obtener($areaAplicacionId, $lineaInvestigacionId);
+    } elseif ($metodo === 'DELETE') {
+        $controlador->retirar($areaAplicacionId, $lineaInvestigacionId);
+    } elseif ($metodo === 'PUT') {
+        $controlador->reemplazar($areaAplicacionId, $lineaInvestigacionId, $cuerpo);
+    } elseif ($metodo === 'PATCH') {
+        $controlador->actualizar($areaAplicacionId, $lineaInvestigacionId, $cuerpo);
+    } else {
+        responderNoPermitido();
+    }
+
+    return;
+}
+
+// ======================================================================
+// GRUPO LINEA — V2 (CLAVE COMPUESTA INT + INT)
+// ======================================================================
+
+// Coleccion: GET y POST /api/grupo_linea.
+if ($ruta === '/api/grupo_linea') {
+    require_once __DIR__ . '/servicios/ensamblador.php';
+
+    $controladores = ensamblarControladores();
+    $controlador = $controladores['grupo_linea'];
+
+    if ($metodo === 'GET') {
+        $controlador->listar();
+    } elseif ($metodo === 'POST') {
+        $controlador->crear($cuerpo);
+    } else {
+        responderNoPermitido();
+    }
+
+    return;
+}
+
+// Ficha: /api/grupo_linea/{grupo_investigacion}/{linea_investigacion}.
+// Ambas claves deben ser enteros positivos; PUT y PATCH devuelven HTTP 405.
+if (preg_match('#^/api/grupo_linea/([1-9]\d*)/([1-9]\d*)$#', $ruta, $coincidencias)) {
+    require_once __DIR__ . '/servicios/ensamblador.php';
+
+    $controladores = ensamblarControladores();
+    $controlador = $controladores['grupo_linea'];
+    $grupoInvestigacionId = (int) $coincidencias[1];
+    $lineaInvestigacionId = (int) $coincidencias[2];
+
+    if ($metodo === 'GET') {
+        $controlador->obtener($grupoInvestigacionId, $lineaInvestigacionId);
+    } elseif ($metodo === 'DELETE') {
+        $controlador->retirar($grupoInvestigacionId, $lineaInvestigacionId);
+    } elseif ($metodo === 'PUT') {
+        $controlador->reemplazar($grupoInvestigacionId, $lineaInvestigacionId, $cuerpo);
+    } elseif ($metodo === 'PATCH') {
+        $controlador->actualizar($grupoInvestigacionId, $lineaInvestigacionId, $cuerpo);
+    } else {
+        responderNoPermitido();
+    }
+
+    return;
+}
+
+// ======================================================================
+// SEMILLERO LINEA — V2 (CLAVE COMPUESTA INT + INT)
+// ======================================================================
+
+// Coleccion: GET y POST sobre /api/semillero_linea.
+if ($ruta === '/api/semillero_linea') {
+    require_once __DIR__ . '/servicios/ensamblador.php';
+
+    $controladores = ensamblarControladores();
+    $controlador = $controladores['semillero_linea'];
+
+    if ($metodo === 'GET') {
+        $controlador->listar();
+    } elseif ($metodo === 'POST') {
+        $controlador->crear($cuerpo);
+    } else {
+        responderNoPermitido();
+    }
+
+    return;
+}
+
+// Ficha: /api/semillero_linea/{semillero}/{linea_investigacion}.
+// Los dos identificadores son enteros positivos y no se pueden modificar.
+if (preg_match('#^/api/semillero_linea/([1-9]\d*)/([1-9]\d*)$#', $ruta, $coincidencias)) {
+    require_once __DIR__ . '/servicios/ensamblador.php';
+
+    $controladores = ensamblarControladores();
+    $controlador = $controladores['semillero_linea'];
+    $semilleroId = (int) $coincidencias[1];
+    $lineaInvestigacionId = (int) $coincidencias[2];
+
+    if ($metodo === 'GET') {
+        $controlador->obtener($semilleroId, $lineaInvestigacionId);
+    } elseif ($metodo === 'DELETE') {
+        $controlador->retirar($semilleroId, $lineaInvestigacionId);
+    } elseif ($metodo === 'PUT') {
+        $controlador->reemplazar($semilleroId, $lineaInvestigacionId, $cuerpo);
+    } elseif ($metodo === 'PATCH') {
+        $controlador->actualizar($semilleroId, $lineaInvestigacionId, $cuerpo);
     } else {
         responderNoPermitido();
     }
