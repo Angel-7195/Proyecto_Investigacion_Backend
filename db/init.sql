@@ -260,6 +260,14 @@ CREATE TABLE IF NOT EXISTS `rol_usuario` (
     FOREIGN KEY (`rol_id`) REFERENCES `rol`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
+-- =============================================
+-- ROLES INICIALES DEL SISTEMA - V3
+-- =============================================
+
+INSERT INTO rol (nombre, descripcion, activo)
+VALUES
+    ('admin', 'Administrador del sistema', TRUE),
+    ('consulta', 'Usuario con permisos de solo lectura', TRUE);
 
 -- DATOS DE REFERENCIA (del Excel del módulo)
 -- ============================================================
