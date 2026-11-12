@@ -1,6 +1,8 @@
 # Quickstart — v3: autenticación y roles
 
-> **Estado al 12-11-2026:** bootstrap manual local y roles en MariaDB comprobados; login JWT con **15/15** pruebas y HTTP 200; middleware con **28/28** pruebas y HTTP **401 sin token / 200 con Bearer** para `area_conocimiento`; CRUD `usuario` con **28/28** pruebas aisladas y operaciones HTTP principales verificadas contra MariaDB, incluida baja lógica. Continúan pendientes idempotencia/instalación limpia, `consulta` real por HTTP, `rol`, `rol_usuario`, frontend y regresión integral. Detalles en los registros de fases 1–4.
+> **Actualización de evidencia — 12-11-2026, fase 5:** gestión principal de `rol_usuario` comprobada por **15/15** pruebas aisladas y HTTP real: asignación `201`, ficha `200`, duplicado `409`, retiro `200`, ficha posterior `404`. Un usuario `consulta` real obtuvo GET V1 `200`, POST V1 `403` y GET administrativo `403`; tras retirar el rol, **el mismo JWT** pasó a GET `403`. SQL confirmó usuario sin rol aún activo y `ADMIN` con `admin`. La protección del último administrador **queda pendiente de prueba final solo en base descartable**, sin arriesgar el volumen local. Ver [REGISTRO_FASE5_ROL_USUARIO.md](REGISTRO_FASE5_ROL_USUARIO.md).
+
+> **Estado al 12-11-2026:** bootstrap manual local y roles en MariaDB comprobados; login JWT con **15/15** pruebas y HTTP 200; middleware con **28/28** pruebas y HTTP **401 sin token / 200 con Bearer** para `area_conocimiento`; CRUD `usuario` con **28/28** pruebas aisladas y operaciones HTTP principales verificadas contra MariaDB, incluida baja lógica. Continúan pendientes idempotencia/instalación limpia, `rol` (Miguel), frontend y regresión integral; `consulta` real y `rol_usuario` ya tienen pruebas acotadas en fase 5. Detalles en los registros de fases 1–4.
 
 ## 0. Requisitos y configuración real observada
 
@@ -212,7 +214,7 @@ Con un token administrativo obtenido con el mismo flujo del §2, validar los sig
 | Crear asignación de rol repetida | 409 si UNIQUE/PK lo prohíbe |
 | Crear asignación con FK inexistente | Error coherente con contrato (propuesta 409) |
 | Retirar usuario / rol | Borrado lógico y exclusión de SELECT |
-| Dar de baja relación puente | Según C8 aprobada, DELETE físico **solo del vínculo** (pendiente implementación y prueba) |
+| Dar de baja relación puente | DELETE físico **solo del vínculo** comprobado: 200 y GET posterior 404; usuario permanece activo |
 
 ### 4.1. Evidencia real del CRUD de `usuario` — 12-11-2026
 
@@ -257,7 +259,31 @@ curl.exe -i --max-time 10 http://localhost:8111/api/usuario/2
 
 Para reproducir los POST, PUT, PATCH y DELETE: iniciar sesión con una cuenta administradora propia (`POST /api/login`), tomar `datos.token`, enviarlo como `Authorization: Bearer <token>` y utilizar **otro usuario temporal**, verificando previamente su identidad y sin tocar `ADMIN`. No guardar tokens, contraseñas, `.env` ni hashes completos en la documentación. El ID `2` pertenece solo a la BD local del estudiante; en otras instalaciones debe utilizarse el ID real devuelto por POST.
 
-**Pruebas que faltan:** HTTP 403 usando un usuario `consulta` real; eliminación del último administrador en BD descartable, prueba directa de `password_verify()` sobre la contraseña nueva (ya no disponible tras ejecutar la prueba), validaciones 422/404 adicionales, cambio de contraseña de cuenta con roles y regresión de V1/V2. Más información en [REGISTRO_FASE4_USUARIO.md](REGISTRO_FASE4_USUARIO.md).
+**Pruebas que faltan:** comprobación completa de la matriz con usuario `consulta` real (los primeros HTTP 403 ya constan en fase 5); eliminación del último administrador en BD descartable, prueba directa de `password_verify()` sobre la contraseña nueva (ya no disponible tras ejecutar la prueba), validaciones 422/404 adicionales, cambio de contraseña de cuenta con roles y regresión de V1/V2. Más información en [REGISTRO_FASE4_USUARIO.md](REGISTRO_FASE4_USUARIO.md).
+
+### 4.2. Evidencias de gestión `rol_usuario` — 12-11-2026
+
+La suite aislada `/app/pruebas/prueba_rol_usuario_aislada.php` dio **15/15**. Para repetir el acceso sin Bearer:
+
+```powershell
+curl.exe -i --max-time 10 http://localhost:8111/api/rol_usuario
+```
+
+Resultado observado: `401`. Con JWT admin: POST asignación `201`, GET `200`, duplicado `409`, DELETE `200`, GET posterior `404`. Con JWT real `consulta`: GET V1 `200`, POST V1 `403`, GET usuario `403`, y **mismo token** tras desasignación GET V1 `403`.
+
+**Consulta SQL de comprobación de integridad (solo lectura):**
+
+```sql
+SELECT u.id, u.username, u.activo, r.nombre AS rol
+FROM usuario u
+LEFT JOIN rol_usuario ru ON u.id = ru.usuario_id
+LEFT JOIN rol r ON ru.rol_id = r.id
+WHERE u.id IN (1, 4)
+ORDER BY u.id;
+```
+
+Observado en este volumen local: `ADMIN` ID 1 activo con `admin`; cuenta `consulta` ID 4 activa con rol `NULL`. No extrapolar estos IDs a otras instalaciones. Si se necesita el usuario 4 en el frontend, reponer su asignación mediante JWT admin. **Prohibido probar el último administrador con DELETE en el volumen habitual**; hacerlo al cierre solo en BD descartable. Más detalles en `REGISTRO_FASE5_ROL_USUARIO.md`.
+
 
 ## 5. Frontend: sesión y logout
 
@@ -306,15 +332,15 @@ git ls-files .env.example
 | Idempotencia, instalación limpia y arranque automático Docker | **Pendiente** | No se ejecutaron estas pruebas |
 | Login JWT / credenciales correctas | **Comprobado:** login HTTP `ADMIN` → 200 y 3600 s; suite 15/15 | `REGISTRO_FASE2_LOGIN.md` |
 | HTTP 401 sin token y 200 con Bearer | **Comprobado** en `/api/area_conocimiento` | `REGISTRO_FASE3_MIDDLEWARE.md` |
-| HTTP 403 de `consulta` real | **Pendiente**; solo suite automatizada de autorización | `REGISTRO_FASE3_MIDDLEWARE.md` |
-| CRUD administrativo | **`usuario`: pruebas aisladas 28/28 y HTTP principal comprobado**; `rol` y `rol_usuario` pendientes | `REGISTRO_FASE4_USUARIO.md` |
+| HTTP 403 de `consulta` real | **Comprobado parcialmente:** POST V1 y GET `/api/usuario` → 403; mismo JWT tras retirar rol → 403 | `REGISTRO_FASE5_ROL_USUARIO.md` |
+| CRUD administrativo | **`usuario`: 28/28 aisladas y HTTP principal; `rol_usuario`: 15/15 aisladas y HTTP principal; `rol` pendiente** | Registros fases 4 y 5 |
 | Verificación de contraseña con `password_verify()` | **Comprobado en login real y suite de login**; auditoría de almacenamiento/hash de todos los usuarios pendiente | `REGISTRO_FASE2_LOGIN.md` |
 | Frontend + logout | Pendiente | — |
 | Regresión v1/v2 | Pendiente | — |
 | API apagada / frontend activo | Pendiente | — |
 | Ausencia de secretos versionados | Pendiente | — |
 
-> Ya hay evidencia reportada de login JWT y guarda HTTP, limitada a los casos descritos. No concluir que todos los 16 CRUD estén probados, que haya 403 HTTP de `consulta` real, ni que la v3 esté cerrada.
+> Hay evidencia de login, middleware y HTTP 403 de `consulta` real sobre rutas escogidas. No concluir que los 16 CRUD ni el CRUD `rol` estén probados, que la protección del último admin esté aceptada ni que la v3 esté cerrada.
 
 ## 9. Pruebas negativas con evidencia HTTP y estado de base (pendientes de ejecutar)
 

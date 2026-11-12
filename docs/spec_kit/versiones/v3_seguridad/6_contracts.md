@@ -1,6 +1,8 @@
 # Contratos de la API — v3: autenticación y administración
 
-> **Documento contractual en desarrollo (12-11-2026).** El login JWT y el middleware tienen pruebas locales automatizadas e HTTP; el CRUD **`usuario` ya fue probado parcialmente por HTTP contra MariaDB** (ver `REGISTRO_FASE4_USUARIO.md`). `rol` y `rol_usuario` permanecen pendientes. Revisado contra V2 (29-10-2026) y el DDL de seguridad de `init(4).sql`. Las reglas marcadas **PROPUESTA** siguen sujetas a aprobación y los contratos antiguos deben conservarse después del control de acceso.
+> **Actualización de evidencia — 12-11-2026, fase 5:** gestión principal de `rol_usuario` comprobada por **15/15** pruebas aisladas y HTTP real: asignación `201`, ficha `200`, duplicado `409`, retiro `200`, ficha posterior `404`. Un usuario `consulta` real obtuvo GET V1 `200`, POST V1 `403` y GET administrativo `403`; tras retirar el rol, **el mismo JWT** pasó a GET `403`. SQL confirmó usuario sin rol aún activo y `ADMIN` con `admin`. La protección del último administrador **queda pendiente de prueba final solo en base descartable**, sin arriesgar el volumen local. Ver [REGISTRO_FASE5_ROL_USUARIO.md](REGISTRO_FASE5_ROL_USUARIO.md).
+
+> **Documento contractual en desarrollo (12-11-2026).** El login JWT y el middleware tienen pruebas locales automatizadas e HTTP; el CRUD **`usuario` ya fue probado parcialmente por HTTP contra MariaDB** (ver `REGISTRO_FASE4_USUARIO.md`). `rol` de Miguel permanece pendiente de integración; el flujo principal de `rol_usuario` ya cuenta con evidencia HTTP real. Revisado contra V2 (29-10-2026) y el DDL de seguridad de `init(4).sql`. Las reglas marcadas **PROPUESTA** siguen sujetas a aprobación y los contratos antiguos deben conservarse después del control de acceso.
 
 > **Actualización al 12-11-2026:** roles y administrador inicial creados localmente; login real `ADMIN` exitoso con JWT de 3600 segundos (**15/15** pruebas automatizadas); autorización central con **28/28** pruebas automatizadas, HTTP **401** sin token y **200** con Bearer válido para `area_conocimiento`. Persisten pendientes idempotencia del bootstrap, instalación limpia, matriz HTTP completa, CRUD administrativos, frontend y regresión. La evidencia proviene del estudiante, no de acceso directo a su Docker. Véanse [REGISTRO_FASE1_ADMIN.md](REGISTRO_FASE1_ADMIN.md), [REGISTRO_FASE2_LOGIN.md](REGISTRO_FASE2_LOGIN.md), [REGISTRO_FASE3_MIDDLEWARE.md](REGISTRO_FASE3_MIDDLEWARE.md) y [7_quickstart.md](7_quickstart.md).
 ## §0. Sobre común y autenticación
@@ -171,9 +173,12 @@ Ejemplo de solicitud POST (**solo ilustrativo, no copiar contraseñas de prueba 
 
 ## §5. Gestión de `rol_usuario` — **solo admin**
 
-El módulo exige gestión de asignaciones. El SQL confirma que **`usuario_id` y `rol_id` son INT, FK y PK compuesta**, y que no hay `id` propio ni `activo`. **La política de retiro y los métodos ya fueron acordados; falta implementarlos**, sin añadir campos inexistentes.
+**Estado HTTP observado (local, 12-11-2026):** POST relación `(4,2)` → `201`, GET → `200`, POST duplicado → `409`, DELETE → `200`, GET posterior → `404`; GET colección sin JWT → `401`. Un JWT del usuario `consulta` real dio GET V1 `200` y POST V1/GET usuario `403`, y el mismo JWT dio GET V1 `403` tras el retiro. Quedan pendientes el último admin en BD descartable, FK inexistentes y PUT/PATCH `405` por HTTP real. Los IDs 4 y 2 son ejemplos de la BD del estudiante, no identificadores fijos. Ver registro de fase 5.
 
-| Ruta **PROPUESTA** | Operación | Observación |
+
+El módulo exige gestión de asignaciones. El SQL confirma que **`usuario_id` y `rol_id` son INT, FK y PK compuesta**, y que no hay `id` propio ni `activo`. **La política de retiro y los métodos ya fueron acordados e implementados para los flujos principales**, sin añadir campos inexistentes. La prueba de último administrador no está cerrada.
+
+| Ruta del módulo `rol_usuario` | Operación | Observación |
 |---|---|---|
 | `GET /api/rol_usuario` | Listar asignaciones vigentes | Datos solo para admin |
 | `GET /api/rol_usuario/{usuario_id}/{rol_id}` | Obtener relación | PK compuesta confirmada en SQL |
@@ -181,7 +186,7 @@ El módulo exige gestión de asignaciones. El SQL confirma que **`usuario_id` y 
 | `DELETE /api/rol_usuario/{usuario_id}/{rol_id}` | Retirar asignación | DELETE físico solo del vínculo; protegido contra retiro del último admin activo; usuario/rol conservan borrado lógico |
 | `PUT` / `PATCH` | Actualizar asignación | **Acordado C8:** responder `405`; las dos FK constituyen la PK y no hay campos adicionales editables. |
 
-**Propuesta de cuerpo de creación:**
+**Cuerpo usado en las pruebas del módulo:**
 
 ```json
 {

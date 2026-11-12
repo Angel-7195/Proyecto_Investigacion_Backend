@@ -1,8 +1,10 @@
 # Checklist de requisitos y cierre — v3: Investigación
 
+> **Actualización de evidencia — 12-11-2026, fase 5:** gestión principal de `rol_usuario` comprobada por **15/15** pruebas aisladas y HTTP real: asignación `201`, ficha `200`, duplicado `409`, retiro `200`, ficha posterior `404`. Un usuario `consulta` real obtuvo GET V1 `200`, POST V1 `403` y GET administrativo `403`; tras retirar el rol, **el mismo JWT** pasó a GET `403`. SQL confirmó usuario sin rol aún activo y `ADMIN` con `admin`. La protección del último administrador **queda pendiente de prueba final solo en base descartable**, sin arriesgar el volumen local. Ver [REGISTRO_FASE5_ROL_USUARIO.md](REGISTRO_FASE5_ROL_USUARIO.md).
+
 > **No es autoaprobación de IA.** Lo revisa el equipo en tres momentos: (1) antes de programar, para verificar calidad de la spec; (2) durante pruebas; (3) antes del tag v3. Las casillas **de aprobación humana** no están marcadas; los resultados de pruebas ya ejecutadas se registran por separado.
 
-> **Nota de evidencia actualizada al 12-11-2026:** Fase 1: bootstrap manual local; Fase 2: **15/15** pruebas de login/JWT y login real HTTP 200; Fase 3: **28/28** pruebas del middleware y HTTP real `401` sin token / `200` con Bearer para `area_conocimiento`; **Fase 4 (`usuario`): 28/28 pruebas aisladas, CRUD principal probado por HTTP y MariaDB**. La evidencia está en los registros de las cuatro fases. **No** se marcan por IA los criterios amplios ni las compuertas humanas; siguen pendientes `consulta` real, `rol`, `rol_usuario`, eliminación real del último administrador en BD descartable, regresión completa e instalación limpia.
+> **Nota de evidencia actualizada al 12-11-2026:** Fase 1: bootstrap manual local; Fase 2: **15/15** pruebas de login/JWT y login real HTTP 200; Fase 3: **28/28** pruebas del middleware y HTTP real `401` sin token / `200` con Bearer para `area_conocimiento`; **Fase 4 (`usuario`): 28/28 pruebas aisladas, CRUD principal probado por HTTP y MariaDB**. La evidencia está en los registros de las cuatro fases. **No** se marcan por IA los criterios amplios ni las compuertas humanas; siguen pendientes `rol` de Miguel, pruebas negativas adicionales de `rol_usuario`, último administrador en BD descartable, frontend, regresión completa e instalación limpia; `consulta` real y el flujo principal de `rol_usuario` ya cuentan con evidencia.
 
 ## I. COMPUERTA PREVIA — calidad de requisitos (antes de escribir código)
 
@@ -97,8 +99,22 @@ Las secciones B–G **no cuentan** para aprobar anticipadamente la calidad de la
 - [x] GET individual sin JWT devuelve 401.
 - [x] Hash con prefijo `$2y$` y longitud 60; JOIN con un administrador activo (consultas de solo lectura).
 - [ ] Validar rechazo **real** de retirar al último administrador en una BD descartable.
-- [ ] Validar por HTTP la restricción 403 para un usuario real `consulta` y los casos de 422 adicionales.
+- [x] Validar parcialmente HTTP 403 para usuario `consulta` real (POST V1 y GET usuario). [ ] Completar otros métodos/rutas y casos 422.
 - [ ] Comprobar directamente el hash de una contraseña recién cambiada con `password_verify()`.
+
+### D.2. Evidencia parcial de `rol_usuario` (NO constituye cierre de sección D)
+
+- [x] Suite aislada 15/15 y sintaxis del router/ensamblador correcta.
+- [x] GET sin token 401; POST asignación 201; GET ficha 200; duplicado 409.
+- [x] Cuenta `consulta` real: GET V1 200, POST V1 403 y GET `/api/usuario` 403.
+- [x] DELETE relación 200, GET posterior 404, mismo JWT ya sin permiso 403.
+- [x] SQL de lectura: `ADMIN` activo con rol `admin`, usuario 4 activo sin rol.
+- [ ] Proteger último administrador en BD descartable; no tocar la cuenta real `ADMIN`.
+- [ ] Verificar por HTTP FK inexistentes/inactivas, PUT/PATCH 405, segundo DELETE y datos inválidos.
+- [ ] Probar matriz completa, módulo `rol`, frontend y regresión V1/V2.
+
+**Fuente:** `REGISTRO_FASE5_ROL_USUARIO.md`; no se marcan por IA las compuertas de aprobación humanas.
+
 
 ## E. Frontend y separación
 

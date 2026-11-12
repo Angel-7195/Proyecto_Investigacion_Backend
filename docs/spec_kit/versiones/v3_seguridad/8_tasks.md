@@ -1,6 +1,8 @@
 # Tareas — v3: Seguridad (Investigación)
 
-> Orden sugerido: especificar → comprobar el esquema → implementar por capas → probar API y frontend → regresión → tag. Asignar responsables y commits del equipo; las casillas de **aceptación final** permanecen abiertas hasta revisión del equipo. Algunas tareas con evidencia ejecutada se marcaron como completadas de forma **acotada**; ello no equivale a cerrar una fase ni aprobar compuertas SDD. Ver registros de fases 1, 2, 3 y 4.
+> **Actualización de evidencia — 12-11-2026, fase 5:** gestión principal de `rol_usuario` comprobada por **15/15** pruebas aisladas y HTTP real: asignación `201`, ficha `200`, duplicado `409`, retiro `200`, ficha posterior `404`. Un usuario `consulta` real obtuvo GET V1 `200`, POST V1 `403` y GET administrativo `403`; tras retirar el rol, **el mismo JWT** pasó a GET `403`. SQL confirmó usuario sin rol aún activo y `ADMIN` con `admin`. La protección del último administrador **queda pendiente de prueba final solo en base descartable**, sin arriesgar el volumen local. Ver [REGISTRO_FASE5_ROL_USUARIO.md](REGISTRO_FASE5_ROL_USUARIO.md).
+
+> Orden sugerido: especificar → comprobar el esquema → implementar por capas → probar API y frontend → regresión → tag. Asignar responsables y commits del equipo; las casillas de **aceptación final** permanecen abiertas hasta revisión del equipo. Algunas tareas con evidencia ejecutada se marcaron como completadas de forma **acotada**; ello no equivale a cerrar una fase ni aprobar compuertas SDD. Ver registros de fases 1, 2, 3, 4 y 5.
 
 ## Fase 0 — Compuertas SDD y base v2
 
@@ -92,7 +94,7 @@
 
 - [x] Rutas específicas `usuario`: GET listado/individual, POST, PUT, PATCH, DELETE **implementadas y probadas por HTTP en MariaDB local**; `PATCH /api/usuario/{id}/password` probado con 200. Casos negativos restantes pendientes.
 - [ ] Rutas específicas `rol`: GET listado/individual, POST, PUT, PATCH, DELETE.
-- [ ] Rutas específicas `rol_usuario`: operaciones aprobadas en C8.
+- [x] Flujo principal `rol_usuario` GET/POST/DELETE implementado y probado por HTTP (15/15 aisladas, 201/200/409/200/404); aceptación de último admin y casos negativos pendiente.
 - [ ] Validación de JSON, campos, llaves y listas blancas según esquema.
 - [ ] Tratamiento de 204/400/404/409/422/500 sin filtración de SQL.
 - [ ] Pruebas contra el uso directo de las rutas por `consulta` y usuarios sin token.
@@ -111,8 +113,23 @@
 - [x] Inspeccionar solo **formato** de hashes (`$2y$`, 60 caracteres) y contar un administrador activo mediante SQL de lectura.
 - [ ] Probar en una base descartable que no se puede retirar al **último** administrador (la prueba aislada pasa, la base real no se puso en riesgo).
 - [ ] Verificar `password_verify()` sobre la contraseña recién cambiada en una cuenta con rol activo de prueba.
-- [ ] Probar permisos `403` con usuario `consulta` real y todos los recursos administrativos.
-- [ ] Cerrar contrato completo y pruebas de `rol_usuario` con coherencia transaccional al administrar el último admin.
+- [x] Verificar parcialmente permisos `403` con usuario `consulta` real (POST V1, GET `/api/usuario`, y pérdida inmediata de rol). [ ] Extenderlo a todas las rutas/métodos.
+- [ ] Cerrar casos negativos y protección transaccional del último admin de `rol_usuario` en BD descartable; altas/retiros principales ya comprobados.
+
+### Evidencia parcial de fase 5 — `rol_usuario` (12-11-2026)
+
+- [x] Docker y `php -l` del router/ensamblador sin errores.
+- [x] Suite aislada de asociaciones **15/15**.
+- [x] GET `/api/rol_usuario` sin token **401**.
+- [x] POST asignación `201`, GET ficha `200`, POST duplicado `409`.
+- [x] Usuario real `consulta`: GET V1 `200`, POST V1 `403`, GET usuario `403`.
+- [x] DELETE asociación `200`, GET ficha posterior `404` y mismo JWT sin acceso `403`.
+- [x] SQL posterior: usuario consulta activo sin rol y admin activo con `admin`.
+- [ ] Último administrador, FK inválida, PUT/PATCH 405 y segundo DELETE por HTTP en entorno descartable.
+- [ ] Integración frontend, CRUD `rol` de Miguel, regresión completa y revisión humana.
+
+Fuente: `REGISTRO_FASE5_ROL_USUARIO.md`. Las marcas corresponden solo a hechos reportados; no aprueban toda la fase.
+
 
 ## Fase 6 — Frontend PHP
 
@@ -174,4 +191,4 @@ No marcar tareas hechas porque exista el archivo Markdown. Las fases de arriba s
 
 ### Distribución recomendada en pareja (no asignación automática)
 
-El login y el middleware ya están implementados parcialmente y probados en el backend local. Para las siguientes ramas se mantiene el **contrato acordado de `POST /api/login`** y la matriz de permisos; los CRUD `rol`, `rol_usuario` y el frontend deben integrarse sin reabrir arbitrariamente los contratos del login, middleware ni `usuario`. Cada estudiante realiza commits propios y el encargado de `main` integra por Pull Request. Las decisiones C3–C11 deben tener responsable y fecha de aprobación antes de empezar sus tareas dependientes.
+El login y el middleware ya están implementados parcialmente y probados en el backend local. Para las siguientes ramas se mantiene el **contrato acordado de `POST /api/login`** y la matriz de permisos; el CRUD `rol` y el frontend deben integrarse; el flujo principal de `rol_usuario` ya se integró sin reabrir arbitrariamente los contratos del login, middleware ni `usuario`. Cada estudiante realiza commits propios y el encargado de `main` integra por Pull Request. Las decisiones C3–C11 deben tener responsable y fecha de aprobación antes de empezar sus tareas dependientes.

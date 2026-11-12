@@ -1,5 +1,7 @@
 # Plan técnico — v3: Seguridad (Investigación)
 
+> **Actualización de evidencia — 12-11-2026, fase 5:** gestión principal de `rol_usuario` comprobada por **15/15** pruebas aisladas y HTTP real: asignación `201`, ficha `200`, duplicado `409`, retiro `200`, ficha posterior `404`. Un usuario `consulta` real obtuvo GET V1 `200`, POST V1 `403` y GET administrativo `403`; tras retirar el rol, **el mismo JWT** pasó a GET `403`. SQL confirmó usuario sin rol aún activo y `ADMIN` con `admin`. La protección del último administrador **queda pendiente de prueba final solo en base descartable**, sin arriesgar el volumen local. Ver [REGISTRO_FASE5_ROL_USUARIO.md](REGISTRO_FASE5_ROL_USUARIO.md).
+
 > **Estado:** propuesta revisada con el Spec Kit V2 recibido (29-10-2026). El DDL del script entregado se cotejó y quedó resuelto en C1; resolver C3–C11 y cotejar el código integrado y el estado de la BD en ejecución. C2 está documentado, aún requiere prueba de regresión. No modificar V1/V2 cerradas a ciegas.
 
 > **Evidencia de ejecución al 12-11-2026:** alta CLI del administrador ya efectuada; `POST /api/login` con JWT HS256 de **60 minutos** funcional (15/15 pruebas automatizadas y HTTP 200 real). Middleware integrado antes de los controladores: 28/28 pruebas automatizadas; GET real sin Bearer → 401 y con Bearer de `ADMIN` → 200 sobre `area_conocimiento`. Véanse `REGISTRO_FASE1_ADMIN.md`, `REGISTRO_FASE2_LOGIN.md` y `REGISTRO_FASE3_MIDDLEWARE.md`. Faltan CRUD administrativos, sesión frontend, matriz HTTP completa admin/consulta, regresión y cierre SDD.
@@ -147,7 +149,7 @@ Las rutas de archivo de arriba son **orientativas**, deben ajustarse a la estruc
 - Pruebas aisladas **28/28** y pruebas HTTP sobre MariaDB local para listado, ficha, POST, PUT, PATCH, cambio de contraseña por ruta separada, duplicados y DELETE lógico.
 - Se comprobó `activo=0` tras el retiro y que el GET administrativo del usuario retirado devuelve `404`. Los errores de duplicado de `username` y `email` devuelven `409`. El GET sin Bearer devuelve `401`.
 - La comprobación de último admin existe en el repositorio con transacción y bloqueo, pero **solo se probó con repositorio falso**; probar en un entorno de BD descartable antes de afirmar su verificación end-to-end. Esta coordinación debe respetarse cuando se implemente `rol_usuario`.
-- Quedan pendientes las comprobaciones `403` con un usuario real `consulta`, `rol` (Miguel), `rol_usuario` (Ángel), frontend y regresión completa.
+- Ya se comprobó **HTTP 403 con un usuario `consulta` real** y la gestión principal de `rol_usuario` (Ángel). Siguen pendientes `rol` (Miguel), pruebas del último admin, frontend y regresión completa.
 
 ### Fase E — Frontend
 

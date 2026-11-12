@@ -1,5 +1,7 @@
 # Investigación y decisiones — v3: Seguridad
 
+> **Actualización de evidencia — 12-11-2026, fase 5:** gestión principal de `rol_usuario` comprobada por **15/15** pruebas aisladas y HTTP real: asignación `201`, ficha `200`, duplicado `409`, retiro `200`, ficha posterior `404`. Un usuario `consulta` real obtuvo GET V1 `200`, POST V1 `403` y GET administrativo `403`; tras retirar el rol, **el mismo JWT** pasó a GET `403`. SQL confirmó usuario sin rol aún activo y `ADMIN` con `admin`. La protección del último administrador **queda pendiente de prueba final solo en base descartable**, sin arriesgar el volumen local. Ver [REGISTRO_FASE5_ROL_USUARIO.md](REGISTRO_FASE5_ROL_USUARIO.md).
+
 > Cada decisión indica contexto, alternativas, decisión y consecuencia. **Aprobada** significa exigida por las fuentes del proyecto; **propuesta** requiere aprobación del equipo en la compuerta 1. No confundir este documento con investigación externa de bibliotecas.
 
 > **Evidencia al 12-11-2026:** el usuario aportó las pruebas de la inicialización CLI, **15/15** pruebas de login/JWT y **28/28** del middleware; HTTP real de login con `ADMIN` → 200; GET `/api/area_conocimiento` sin token → 401 y con Bearer válido → 200. Es evidencia de ejecución local comunicada, no auditoría independiente de todo el código. Ver registros de fases 1, 2 y 3. El CRUD `usuario` añadió 28/28 pruebas aisladas, operaciones HTTP reales y comprobaciones SQL locales (ver `REGISTRO_FASE4_USUARIO.md`). Persisten pendientes de `rol`, `rol_usuario`, frontend PHP, regresión y despliegue reproducible.
@@ -64,9 +66,9 @@
 
 - **Contexto verificado con `init(4).sql`:** tabla con PK compuesta `(usuario_id, rol_id)`, dos FKs `ON DELETE CASCADE`, sin `activo` ni otras columnas. El borrado lógico de `usuario`/`rol` no dispara cascadas.
 - **Alternativas:** (a) desasignar con DELETE físico **solo de la asociación** sin eliminar usuario/rol; (b) solicitar y justificar adición de `activo` al puente y consultar solo vínculos activos.
-- **Decisión:** **pendiente aprobación C8**. Para PUT/PATCH se propone `405` porque no hay atributos editables aparte de la PK, como en las cinco asociaciones simples de V2.
+- **Decisión:** **C8 aprobada** por el equipo. Para PUT/PATCH se propone `405` porque no hay atributos editables aparte de la PK, como en las cinco asociaciones simples de V2.
 - **Consecuencias:** (a) elimina historial de asignaciones; (b) cambia el esquema dado y requiere autorización y registro del cambio. Las cascadas del SQL solo aplican a borrado **físico** de las tablas principales.
-- **Estado:** DDL confirmado; equipo aprobó DELETE físico del vínculo y PUT/PATCH 405. Implementación pendiente.
+- **Estado actualizado 12-11-2026:** DDL confirmado, DELETE físico del vínculo implementado (HTTP 200/404 y usuario conservado); PUT/PATCH 405 contractual pendiente de comprobación HTTP, igual que el último admin en BD descartable.
 
 ## D-v3-09 — Primer administrador
 
