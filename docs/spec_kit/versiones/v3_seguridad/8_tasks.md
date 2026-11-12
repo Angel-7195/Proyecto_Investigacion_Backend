@@ -1,6 +1,6 @@
 # Tareas — v3: Seguridad (Investigación)
 
-> Orden sugerido: especificar → comprobar el esquema → implementar por capas → probar API y frontend → regresión → tag. Asignar responsables y commits del equipo; las casillas están **sin marcar** porque no se ha implementado ni verificado la v3.
+> Orden sugerido: especificar → comprobar el esquema → implementar por capas → probar API y frontend → regresión → tag. Asignar responsables y commits del equipo; las casillas de **aceptación final** permanecen abiertas hasta revisión del equipo. Algunas tareas con evidencia ejecutada se marcaron como completadas de forma **acotada**; ello no equivale a cerrar una fase ni aprobar compuertas SDD. Ver registros de fases 1, 2 y 3.
 
 ## Fase 0 — Compuertas SDD y base v2
 
@@ -11,7 +11,7 @@
 - [ ] Identificar diferencias entre mapa de versiones antiguo y metodología; actualizar mapa del equipo con aprobación.
 - [x] Examinar `init(4).sql` y registrar su DDL de seguridad en `5_data_model.md`. [ ] Contrastar el resultado con `SHOW CREATE TABLE` en MariaDB activa.
 - [x] Registrar el acuerdo para roles semilla `admin` y `consulta`, y primer administrador mediante script PHP solo CLI (9-11-2026; diseño, no prueba).
-- [ ] Confirmar matriz de acceso, roles adicionales/múltiples, detalles operativos del bootstrap y semántica de logout.
+- [x] Confirmación del estudiante: equipo aprobó matriz admin/consulta, roles múltiples, bootstrap manual, logout en sesión PHP y JWT de 60 minutos. [ ] Precisar diseño técnico de cookies/CSRF, claims opcionales y automatización Docker.
 - [ ] Resolver C2–C12 de `2_spec.md` y comprobar en ejecución la concordancia del esquema; **C1 está resuelta para el SQL fuente**.
 - [ ] Validar `3_plan.md` contra la constitución vigente del equipo.
 - [ ] Revisar la lista de requisitos de `9_checklist.md` entre compañeros.
@@ -21,10 +21,10 @@
 
 ## Fase 1 — Infraestructura y secretos
 
-- [ ] Añadir `JWT_SECRET` al entorno de la API (no frontend).
+- [x] Añadir `JWT_SECRET` al entorno de la API (no frontend). **Evidencia local:** longitud 64 en el contenedor; falta revisión de Git.
 - [ ] Mantener `.env` en `.gitignore` y ejemplos seguros en `.env.example`.
 - [ ] Verificar que no haya secretos reales en Git ni contraseñas de usuario en SQL de prueba versionado.
-- [ ] Confirmar arranque Docker sin alterar datos persistidos de la v2.
+- [x] Confirmar arranque Docker con MariaDB saludable tras `docker compose up -d --build` en el volumen local. **Pendiente:** regresión de datos v1/v2 e instalación desde cero.
 - [ ] Añadir a `db/init.sql` los INSERT de roles `admin` y `consulta` y numerar/justificar el cambio de semillas en la cabecera del script; **no** incluir usuarios ni contraseñas.
 - [ ] Crear `api_investigacion/scripts/inicializar_admin.php` solo CLI; leer `ADMIN_INICIAL_USERNAME`, `ADMIN_INICIAL_EMAIL` y `ADMIN_INICIAL_PASSWORD` desde el entorno y crear el hash con `password_hash(PASSWORD_DEFAULT)`.
 - [ ] Hacer la creación de cuenta y asignación en `rol_usuario` atómica, con SQL preparado y consulta de IDs reales (nunca asumir `rol_id = 1`).
@@ -33,7 +33,13 @@
 - [ ] Integrar el script con el arranque `docker compose up -d --build` tras disponibilidad de MariaDB y documentar su ejecución real; el secreto debe quedar fuera de Git, logs y capturas.
 - [ ] Comprobar que no existen rutas HTTP de bootstrap o registro público; documentar recuperación inicial y retirada del secreto temporal tras la creación.
 
-**Verificación:** entorno levanta con un comando; no se imprimen ni versionan secretos.
+**Verificación:** el bootstrap **manual** ya creó un admin con rol en MariaDB; sigue pendiente repetirlo, probar instalación limpia, comprobar secreto fuera de Git y validar el arranque en un solo comando.
+
+### Evidencia parcial de Fase 1 (no marcar todo como cerrado)
+
+- **Realizado y observado:** bloque SQL con roles en `git diff`; cuatro archivos PHP sin errores de sintaxis; mensaje de alta `Administrador inicial creado y rol asignado correctamente`; SELECT de los dos roles y asociación del usuario `ADMIN` con `admin`.
+- **Sin prueba todavía:** idempotencia por segunda ejecución, instalación limpia, prueba segura del hash con `password_verify`, comportamiento sin variables, recuperación ante estado ambiguo, commit/PR, integración automática al arranque y ausencia de secretos en Git.
+- Evidencia detallada: [REGISTRO_FASE1_ADMIN.md](REGISTRO_FASE1_ADMIN.md).
 
 ## Fase 2 — Modelos, interfaces y repositorios
 
@@ -51,24 +57,36 @@
 ## Fase 3 — Login y JWT
 
 - [ ] `password_hash()` al crear/cambiar contraseña y `password_verify()` al login.
-- [ ] Codificación Base64URL, HS256 y verificación robusta con `hash_equals`.
-- [ ] Rechazo de token vencido, alterado, con algoritmo no permitido o claims inválidos.
-- [ ] `POST /api/login` con respuestas de éxito/401/422/500 documentadas.
+- [x] Codificación Base64URL, HS256 y verificación con `hash_equals` (archivo `JwtHS256.php` recibido y suite de login 15/15).
+- [x] Rechazo de token vencido, alterado, algoritmo `none` y firma inválida **en suite automatizada 15/15**; HTTP end-to-end de cada variante pendiente.
+- [ ] `POST /api/login`: **HTTP 200 real** comprobado, `401` en primer intento sin causa exacta; **15/15 suite**. Aún falta validar todos los errores 401/422/500 por HTTP.
 - [ ] Sin contraseñas, hashes, JWT ni secretos completos en respuestas de error o logs.
 
-**Verificación:** conjunto de casos positivos y negativos de login/token, incluido usuario inactivo.
+**Verificación parcial realizada:** 15/15 suite y login HTTP real; faltan controles end-to-end de usuario inactivo, errores y secrecía en Git.
 
 ## Fase 4 — Autorización central
 
 - [ ] Inventariar todos los métodos y rutas de los 16 recursos previos.
-- [ ] Implementar guardas de autenticación y rol antes del controlador.
+- [x] Implementar guarda de autenticación y rol antes del controlador (`index.php` confirmado por `Select-String`; 28/28 suite; HTTP 401/200 en `area_conocimiento`).
 - [ ] Proteger los 3 CRUD administrativos exclusivamente para admin.
-- [ ] `401` si falta identidad válida, `403` si falta permiso, sin tocar BD de negocio.
+- [ ] `401` **comprobado por HTTP** sin token; `403` y ausencia de escrituras **solo en suite automatizada**, pendientes pruebas reales con `consulta`.
 - [ ] Bloquear escrituras de `consulta` en todos los CRUD de v1/v2.
-- [ ] Asegurar que los permisos de roles retirados no se mantienen de forma indebida según C6.
+- [x] Comprobar en suite automatizada que retirar el rol `admin` elimina privilegios y usuario desactivado pierde autenticación; falta prueba de integración HTTP con cambio real de BD.
 - [ ] Mantener excepciones/rutas originales de v1 y v2 sin alteraciones no acordadas.
 
-**Verificación:** prueba de matriz por verbo y recurso con ambos perfiles.
+**Verificación parcial realizada:** 28/28 suite y 401/200 real en `area_conocimiento`; falta matriz HTTP completa por verbo/recurso y usuario `consulta` real.
+
+### Registro parcial de la autorización (12-11-2026)
+
+| Evidencia | Resultado | Límite |
+|---|---|---|
+| `prueba_login_jwt.php` | **15/15** | No sustituye pruebas HTTP negativas exhaustivas |
+| `POST /api/login` con `ADMIN` | **200**, rol `admin`, **3600 s** | Solo un usuario real probado |
+| `prueba_middleware_autorizacion.php` | **28/28** | No sustituye las 16 rutas end-to-end |
+| `GET /api/area_conocimiento` sin Bearer | **401** | Solo una ruta comprobada por HTTP |
+| Misma GET con JWT válido de `ADMIN` | **200** | Prueba positiva de admin, no de `consulta` |
+
+**Decisión de seguimiento:** iniciar CRUD `usuario` y `rol_usuario` sin dar por terminadas las tareas de regresión y matriz HTTP. `rol` sigue asignado a Miguel Angel Lotero Alvarez. Evidencia detallada en `REGISTRO_FASE2_LOGIN.md` y `REGISTRO_FASE3_MIDDLEWARE.md`.
 
 ## Fase 5 — CRUD administrativo API
 
@@ -103,7 +121,7 @@
 
 
 - [ ] Pruebas unitarias con repositorios falsos, sin MariaDB, de autenticación y reglas de usuario/rol.
-- [ ] Pruebas HTTP de token correcto, incorrecto, caducado y sin Bearer.
+- [ ] Pruebas HTTP: **correcto 200 / sin Bearer 401 comprobados** en `area_conocimiento`; alterado/caducado por HTTP pendientes (sí probados en suite).
 - [ ] Verificar denegación real de cada escritura `consulta` sin efectos secundarios.
 - [ ] Revisar que `rol_usuario` cumpla relaciones y estrategia de retiro acordada.
 - [ ] Comprobar datos iniciales y borrado lógico de v1/v2.
@@ -141,4 +159,4 @@ No marcar tareas hechas porque exista el archivo Markdown. Las fases de arriba s
 
 ### Distribución recomendada en pareja (no asignación automática)
 
-La preparación de JWT/middleware y la creación de pantallas/cliente HTTP pueden realizarse en ramas separadas, pero **ambas partes deben acordar primero el contrato de `POST /api/login`** y la matriz de permisos. Cada estudiante realiza commits propios y el encargado de `main` integra por Pull Request. Las decisiones C3–C11 deben tener responsable y fecha de aprobación antes de empezar sus tareas dependientes.
+El login y el middleware ya están implementados parcialmente y probados en el backend local. Para las siguientes ramas se mantiene el **contrato acordado de `POST /api/login`** y la matriz de permisos; los CRUD administrativos y el frontend deben integrarse sin reabrirlos arbitrariamente. Cada estudiante realiza commits propios y el encargado de `main` integra por Pull Request. Las decisiones C3–C11 deben tener responsable y fecha de aprobación antes de empezar sus tareas dependientes.

@@ -11,7 +11,7 @@
 | `usuario` y `rol` | `activo TINYINT(1) DEFAULT 1` (nullable) | Aplicar `activo = 1` para autorización; evitar NULL como estado activo |
 | `rol_usuario` | PK `(usuario_id, rol_id)` | No inventar ID; rutas con dos llaves; un vínculo duplicado da conflicto |
 | `rol_usuario` | FK a usuario y rol con `ON DELETE CASCADE` | Cascada solo ante DELETE físico de padre; no al cambiar `activo` |
-| `rol_usuario` | **Sin** `activo` ni otros campos | Política de retiro de vínculo pendiente C8; PUT/PATCH 405 es propuesta |
+| `rol_usuario` | **Sin** `activo` ni otros campos | Equipo aprobó DELETE físico solo del vínculo, PUT/PATCH 405 y protección de último admin; sin implementación aún |
 | Script completo | Sin INSERT en tablas de seguridad | Definir bootstrap primer admin; consultar estado de BD ya persistida |
 
 ## Pendiente de aprobación

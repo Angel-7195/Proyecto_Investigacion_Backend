@@ -2,13 +2,15 @@
 
 > Cada decisión indica contexto, alternativas, decisión y consecuencia. **Aprobada** significa exigida por las fuentes del proyecto; **propuesta** requiere aprobación del equipo en la compuerta 1. No confundir este documento con investigación externa de bibliotecas.
 
+> **Evidencia al 12-11-2026:** el usuario aportó las pruebas de la inicialización CLI, **15/15** pruebas de login/JWT y **28/28** del middleware; HTTP real de login con `ADMIN` → 200; GET `/api/area_conocimiento` sin token → 401 y con Bearer válido → 200. Es evidencia de ejecución local comunicada, no auditoría independiente de todo el código. Ver registros de fases 1, 2 y 3. Persisten pendientes de administración de usuarios, roles y asignaciones, frontend PHP, regresión y despliegue reproducible.
+
 ## D-v3-01 — JWT firmado en PHP puro
 
 - **Contexto:** la metodología exige autenticación `POST /api/login` y JWT; §6.4 muestra la firma HS256 con `hash_hmac()`.
 - **Alternativas:** (a) instalar una librería JWT por Composer; (b) usar funciones nativas PHP y prueba de firma y expiración.
 - **Decisión:** (b), conforme al stack docente. Validar cabecera `alg=HS256`, `typ=JWT`, tres segmentos, Base64URL válido, estructura esperada, firma mediante `hash_equals`, `exp` y claims obligatorios.
 - **Consecuencias:** mayor responsabilidad en pruebas de entradas malformadas; ninguna dependencia adicional. No aceptar algoritmos indicados libremente por el token.
-- **Estado:** aprobación de stack en fuentes; detalles defensivos propuestos.
+- **Estado al 12-11:** se recibió `JwtHS256.php` y el estudiante ejecutó la suite 15/15 y login real; pendiente verificación externa de todos los escenarios y revisión de seguridad final.
 
 ## D-v3-02 — Hash de contraseñas
 
@@ -32,7 +34,7 @@
 - **Alternativas:** (a) verificar permisos dentro de cada vista; (b) validar JWT y autorización en el front controller de API antes de ejecutar controladores.
 - **Decisión propuesta:** (b): verificar token y autorización en una guarda transversal del front controller, antes de invocar los controladores específicos.
 - **Consecuencias:** un menú oculto nunca se considera seguridad; permite pruebas de acceso directo mediante Postman.
-- **Estado:** aprobada por fuentes; matriz de recursos pendiente C4.
+- **Estado al 12-11:** integrada una guarda previa a controladores; 28/28 pruebas locales y HTTP real 401/200 en `area_conocimiento`; falta matriz HTTP completa.
 
 ## D-v3-05 — Política mínima de privilegios
 
@@ -40,7 +42,7 @@
 - **Alternativas:** (a) conceder permisos por defecto y bloquear excepciones; (b) denegar acciones no asignadas explícitamente.
 - **Decisión propuesta:** (b). `consulta` lee; `admin` gestiona; ningún rol desconocido concede permisos automáticamente.
 - **Consecuencias:** la matriz de rutas será fácil de auditar, pero exige acordar perfiles y permisos de lectura.
-- **Estado:** propuesta, pendiente C3/C4.
+- **Estado al 12-11:** matriz aplicada en pruebas automatizadas del middleware (28/28); faltan pruebas HTTP con cuenta real `consulta` y comprobación de la ausencia de escrituras.
 
 ## D-v3-06 — Roles vigentes y cambios posteriores al login
 
@@ -48,15 +50,15 @@
 - **Alternativas:** (a) confiar en claims `roles` hasta `exp`; (b) usar token para identidad y consultar estado/roles vigentes en cada petición protegida.
 - **Decisión recomendada:** (b) para evitar que un usuario retirado conserve privilegios hasta vencimiento.
 - **Consecuencias:** una consulta más a MariaDB en solicitudes protegidas y necesidad de fallar de forma segura si la base no responde. No afecta separación de capas si la verificación consulta repositorio por interfaz.
-- **Estado:** propuesta, pendiente C6.
+- **Estado al 12-11:** la suite del middleware comprobó revocación de rol, usuario desactivado y multirrol con repositorio simulado; falta integración HTTP específica con cambios reales de roles en MariaDB.
 
 ## D-v3-07 — Qué significa logout
 
 - **Contexto:** un JWT es autocontenido; borrar `$_SESSION` no invalida una copia previa del token.
 - **Alternativas:** (a) logout de sesión frontend, token expira después; (b) revocación inmediata usando lista de denegación y estado del servidor.
-- **Decisión:** ninguna aún. El requisito docente pide logout, no describe mecanismo de revocación.
+- **Decisión aprobada por el equipo:** logout del frontend eliminando la sesión PHP y dejando de enviar el token; sin sistema de revocación central de JWT en v3. El token copiado podría seguir válido hasta expirar.
 - **Consecuencias:** documentar semántica real sin prometer revocación inexistente. Si se elige (b), diseñar almacenamiento y pruebas adicionales.
-- **Estado:** **PENDIENTE C7**.
+- **Estado:** aprobado por el equipo: logout de sesión PHP sin revocación centralizada; implementación pendiente.
 
 ## D-v3-08 — CRUD de tabla puente `rol_usuario`
 
@@ -64,7 +66,7 @@
 - **Alternativas:** (a) desasignar con DELETE físico **solo de la asociación** sin eliminar usuario/rol; (b) solicitar y justificar adición de `activo` al puente y consultar solo vínculos activos.
 - **Decisión:** **pendiente aprobación C8**. Para PUT/PATCH se propone `405` porque no hay atributos editables aparte de la PK, como en las cinco asociaciones simples de V2.
 - **Consecuencias:** (a) elimina historial de asignaciones; (b) cambia el esquema dado y requiere autorización y registro del cambio. Las cascadas del SQL solo aplican a borrado **físico** de las tablas principales.
-- **Estado:** DDL confirmado, política de retiro pendiente C8.
+- **Estado:** DDL confirmado; equipo aprobó DELETE físico del vínculo y PUT/PATCH 405. Implementación pendiente.
 
 ## D-v3-09 — Primer administrador
 
@@ -72,7 +74,7 @@
 - **Alternativas:** (a) `POST /api/register` abierto a cualquiera o contraseña fija versionada; (b) un procedimiento controlado de bootstrap para sembrar el primer admin con hash y secreto proporcionado fuera de Git.
 - **Decisión acordada en esta revisión (9-11-2026):** (b). El primer administrador se creará con un script PHP `scripts/inicializar_admin.php`, **solo CLI**, sin ruta pública, obteniendo los datos sensibles del entorno y hasheando con `password_hash(PASSWORD_DEFAULT)` antes de guardar. Insertará la relación por IDs reales de `usuario` y `rol` en una transacción. Antes verificará administradores existentes para no generar duplicados ni asumir que el volumen está vacío.
 - **Consecuencias:** procedimiento reproducible y auditable; el proceso no imprime la clave, no deja una ruta de registro abierto, no modifica una contraseña existente y falla de forma segura ante datos ambiguos. La ejecución/orquestación Docker y el manejo del secreto tras el alta deben cerrarse y probarse.
-- **Estado:** **decisión de diseño registrada**; sin implementación ni verificación de entorno (C5).
+- **Estado a 10-11-2026:** implementación manual CLI y alta inicial **comprobadas por el estudiante** con SELECT de roles/vínculo. Pendientes idempotencia, volumen limpio y arranque automático; ver `REGISTRO_FASE1_ADMIN.md`.
 
 ## D-v3-10 — Conservación de compatibilidad v1/v2
 
@@ -124,7 +126,7 @@
 - **Alternativas:** (a) poner usuario y contraseña iniciales con INSERT en `init.sql`; (b) incluir en el SQL **solo los roles públicos** `admin` y `consulta` y delegar la creación de la cuenta a un bootstrap PHP seguro; (c) dejar los roles para crearse manualmente cada vez.
 - **Decisión acordada en esta revisión (9-11-2026):** (b). Añadir los dos nombres de rol al `init.sql` **como cambio de semillas explícito y numerado**, no como modificación de DDL. Los IDs no se fijan: se consultan por nombre. Para volúmenes ya existentes, el inicializador debe asegurar idempotentemente la presencia de ambos roles sin borrar ni recrear la BD.
 - **Consecuencias:** el `init.sql` del curso sigue siendo el esquema de referencia; el cambio en los datos semilla debe anotarse en la cabecera. Un reinicio no duplica los roles; un volumen previo no ejecuta automáticamente SQL nuevo. No aparece ninguna contraseña en Git. Pendiente probar dos escenarios (base nueva y existente) y la orquestación del arranque.
-- **Estado:** **decisión documentada a solicitud del usuario, pendiente de revisión del equipo**, implementación pendiente y sujeta a compuerta SDD.
+- **Estado a 10-11-2026:** el estudiante comunica aprobación del equipo y exhibió `git diff` con ambas semillas; la consulta posterior mostró ambos roles activos en volumen persistente. No está comprobado su uso en una instalación limpia.
 
 ## D-v3-17 — Tomar la metodología de la v3 del profesor, no su contenido
 
@@ -139,13 +141,13 @@
 - **Contexto:** `usuario` y `rol` pueden tener `activo` en 0 o NULL, y el puente no tiene `activo`. Un JWT vigente puede permanecer en poder de un usuario retirado.
 - **Alternativas:** (a) confiar únicamente en los roles del JWT emitido; (b) buscar usuario/rol/asignación vigentes en la base al autorizar cada operación.
 - **Recomendación:** (b) por mínimo privilegio y efecto inmediato de retiros lógicos, siempre mediante servicios y repositorios por interfaz.
-- **Consecuencias:** mayor carga de consulta; si el almacenamiento no está disponible la operación protegida falla cerrada, sin conceder acceso. **La estrategia final de múltiples roles y el alcance de la consulta están pendientes C3/C6.**
+- **Consecuencias:** mayor carga de consulta; si el almacenamiento no está disponible la operación protegida falla cerrada, sin conceder acceso. **El equipo aprobó varios roles por usuario y la comprobación de permisos vivos en MariaDB; faltan pruebas de implementación.**
 
 ## D-v3-19 — Protección del último administrador y cambios de credenciales
 
 - **Contexto:** los CRUD administrativos podrían eliminar acceso a la única cuenta admin o permitir sobreescrituras involuntarias de `password`.
 - **Alternativas:** (a) aceptar cualquier operación administrativa, aun si deja al sistema sin admin; (b) impedir la retirada de la última cuenta/rol admin activo y definir un cambio de contraseña separado de la edición parcial normal.
-- **Recomendación:** (b), con verificación transaccional para evitar carreras. La política exacta y los contratos quedan **pendientes de C8/C9**.
+- **Recomendación:** (b), con verificación transaccional para evitar carreras. La prohibición de retirar al último admin y el cambio explícito de contraseña fueron aprobados; faltan detalles de validación, implementación y pruebas.
 - **Consecuencias:** evita bloqueo administrativo accidental, pero requiere pruebas de concurrencia e integridad; no declarar esta regla implementada.
 
 ## D-v3-20 — Dos revisiones independientes del checklist

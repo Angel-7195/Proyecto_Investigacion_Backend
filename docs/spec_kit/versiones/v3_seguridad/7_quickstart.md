@@ -1,35 +1,85 @@
 # Quickstart — v3: autenticación y roles
 
-> **Estado:** GUÍA V3 PENDIENTE DE EJECUCIÓN. Se cuenta ahora con el Spec Kit de V2 (29-10-2026), que documenta puertos, servicios y rutas; **no** se recibió el `docker-compose.yml` ni el código de V2. No atribuir a esta guía pruebas nuevas ni afirmar que las variables o puertos son idénticos en la versión integrada.
+> **Estado al 12-11-2026:** bootstrap manual local y roles en MariaDB comprobados; login JWT con **15/15** pruebas automatizadas y HTTP 200 real; middleware con **28/28** pruebas automatizadas y controles HTTP reales **401 sin token / 200 con Bearer** para `area_conocimiento`. La idempotencia del bootstrap, instalación limpia, auditoría de secretos, usuario real `consulta` por HTTP, CRUD administrativos, frontend y regresión total **siguen pendientes**. Detalles en los registros de fase 1, 2 y 3.
 
-## 0. Precondiciones
+## 0. Requisitos y configuración real observada
 
-1. Verificar si existe tag `v2` y cierre formal; se confirmó merge del backend por PR #15 en `9bcf84b`, pero el Spec Kit V2 del 29-10 aún marcaba aceptación/regresión pendiente.
-2. Los servicios Docker reales pueden levantarse desde la estructura de repositorios del equipo.
-3. `JWT_SECRET` está definido como variable de entorno sin publicarse en Git.
-4. La creación de los roles `admin`/`consulta` y del primer administrador se documentó como **decisión de diseño**, no se ha implementado todavía: revisar el procedimiento previsto a continuación. La cuenta `consulta` se crea después a través del CRUD administrativo, no mediante credenciales fijas en SQL. **No** crear usuarios con contraseñas de ejemplo versionadas.
-5. El equipo ha completado C1–C12 de `2_spec.md` y ha reemplazado los ejemplos de contrato por los definitivos.
+- Repositorio backend en rama `feature/angel-investigacion-v3`, con `db/init.sql` modificado y 4 archivos PHP de inicialización incorporados.
+- `docker-compose.yml` recibido: `mariadb` (imagen `mariadb:11`), `api-investigacion` (puerto 8111), `front-php` (8110), phpMyAdmin (8105), volumen `mariadbdata`; MariaDB expuesta en puerto 13330. Los nombres de contenedor pueden variar con el nombre del proyecto Docker.
+- El `ensamblador.php` define `crearConexion()` con `DB_DSN`, `DB_USUARIO`, `DB_CLAVE`; la ampliación de fase 1 incorpora `crearServicioInicializacionSeguridad()`.
+- `.env` de la infraestructura local debe contener la configuración existente de MariaDB y `FRONT_PATH`, pero **nunca se sube a Git**. `JWT_SECRET` se añadió y PHP confirmó su presencia en el contenedor mediante longitud `64`; **no** se ha auditado todavía su exclusión de Git.
+- Antes del cierre del proyecto revisar compuertas SDD, estado de v2 y código real del frontend. Conservar el volumen: **no ejecutar `docker compose down -v`**.
 
-## 0.1. Preparación de roles y administrador inicial (PROCEDIMIENTO PREVISTO, NO EJECUTABLE TODAVÍA)
+## 0.1. Preparación de roles y primer administrador — CLI probado localmente
 
-1. Preparar un `.env` local **ignorado por Git** con `ADMIN_INICIAL_USERNAME`, `ADMIN_INICIAL_EMAIL` y `ADMIN_INICIAL_PASSWORD` para el primer arranque, además de `JWT_SECRET` y las credenciales ya utilizadas por la BD. Mantener `.env.example` solo con nombres/valores ficticios; no copiar claves reales a documentación o capturas.
-2. En una instalación con volumen vacío, el `init.sql` de v3 sembrará `admin` y `consulta`. En un volumen existente, el inicializador seguro los buscará/creará por `nombre` si faltan, sin eliminar la BD.
-3. El proceso PHP `api_investigacion/scripts/inicializar_admin.php` se integrará en el arranque Docker, **únicamente por CLI**. Validará presencia y estado de cuentas, generará `password_hash(PASSWORD_DEFAULT)` y asignará el `rol_id` consultado, sin tener ruta web.
-4. Reiniciar la aplicación y repetir el proceso **no** creará nuevos administradores ni cambiará contraseñas. Si ya hay cuentas ambiguas, se detendrá con instrucciones de recuperación autorizada. Tras el alta, retirar la contraseña de bootstrap de la configuración persistente y custodiar la cuenta.
-5. **No ejecutar** `docker compose down -v`: destruiría el volumen de MariaDB. No hay comando definitivo de inicialización hasta inspeccionar `docker-compose.yml` y comprobar que el proceso cumple la regla de un solo arranque.
+### Paso A. Levantar la base y los servicios
 
-**Consultas de comprobación (de solo lectura, para ejecutar una vez implementado y con acceso autorizado):**
+```powershell
+docker compose up -d --build
+docker compose ps
+```
+
+En un volumen vacío, `db/init.sql` con el bloque v3 siembra `admin` y `consulta` (esto sigue **pendiente de prueba independiente** en instalación limpia). En un volumen ya creado, el script de SQL inicial **no** se reejecuta; el repositorio del bootstrap asegura los dos roles sin destruir datos.
+
+### Paso B. Revisar la sintaxis de los cuatro archivos
+
+```powershell
+docker compose exec api-investigacion php -l /app/scripts/inicializar_admin.php
+docker compose exec api-investigacion php -l /app/repositorios/Repositorios_InicializacionSeguridad/RepositorioInicializacionSeguridadMariaDB.php
+docker compose exec api-investigacion php -l /app/repositorios/Repositorios_InicializacionSeguridad/IRepositorioInicializacionSeguridad.php
+docker compose exec api-investigacion php -l /app/servicios/Servicios_InicializacionSeguridad/ServicioInicializacionSeguridad.php
+```
+
+El estudiante obtuvo `No syntax errors detected` en los cuatro. La comprobación aislada de `function_exists('crearServicioInicializacionSeguridad')` **no imprimió** el `OK` esperado en su terminal; sin embargo, el script invocó con éxito el ensamblador. Registrar nueva prueba explícita si se modifica el ensamblador.
+
+### Paso C. Crear el administrador sin registrar contraseñas
+
+Abrir **PowerShell** en la raíz del repositorio backend. No pegar datos reales en el chat, archivos Markdown, Git ni capturas.
+
+```powershell
+$env:ADMIN_INICIAL_USERNAME = Read-Host 'Usuario del administrador inicial'
+$env:ADMIN_INICIAL_EMAIL = Read-Host 'Correo del administrador inicial'
+$claveSegura = Read-Host 'Contraseña inicial (mínimo 12 caracteres)' -AsSecureString
+$env:ADMIN_INICIAL_PASSWORD = [System.Net.NetworkCredential]::new('', $claveSegura).Password
+
+try {
+    docker compose run --rm --no-deps -e ADMIN_INICIAL_USERNAME -e ADMIN_INICIAL_EMAIL -e ADMIN_INICIAL_PASSWORD api-investigacion php /app/scripts/inicializar_admin.php
+} finally {
+    Remove-Item Env:ADMIN_INICIAL_USERNAME -ErrorAction SilentlyContinue
+    Remove-Item Env:ADMIN_INICIAL_EMAIL -ErrorAction SilentlyContinue
+    Remove-Item Env:ADMIN_INICIAL_PASSWORD -ErrorAction SilentlyContinue
+    Remove-Variable claveSegura -ErrorAction SilentlyContinue
+}
+```
+
+**Resultado observado (primera ejecución en el equipo del estudiante):** `Administrador inicial creado y rol asignado correctamente.` El código exige usuario entre 3 y 100 caracteres, correo válido hasta 150 y contraseña de al menos 12 caracteres. Se usa `password_hash(PASSWORD_DEFAULT)` y una transacción para registrar cuenta y vínculo. Esta regla de 12 caracteres queda adoptada como política del primer administrador de v3 y debe reflejarse también en la gestión posterior de contraseñas.
+
+El comando **no es automático al hacer `docker compose up -d --build`**: en otro computador, una vez inicializada MariaDB, el profesor debe ejecutarlo una sola vez con credenciales elegidas por él. La BD/volumen del estudiante **no** se incluye al clonar GitHub. No hay endpoint web para crear el primer administrador.
+
+### Paso D. Comprobar en phpMyAdmin sin exponer el hash
+
+Abrir `http://localhost:8105` y seleccionar la base configurada en `MARIADB_DATABASE`.
 
 ```sql
 SELECT id, nombre, activo FROM rol WHERE nombre IN ('admin', 'consulta');
-SELECT u.id, u.username, u.activo, r.nombre AS rol, r.activo AS rol_activo
-FROM usuario u
-JOIN rol_usuario ru ON ru.usuario_id = u.id
-JOIN rol r ON r.id = ru.rol_id
+
+SELECT u.username, u.email, u.activo, r.nombre AS rol
+FROM usuario AS u
+JOIN rol_usuario AS ru ON ru.usuario_id = u.id
+JOIN rol AS r ON r.id = ru.rol_id
 WHERE r.nombre = 'admin';
 ```
 
-Nunca mostrar `usuario.password` ni contraseñas en capturas. El `SELECT` no prueba la validez del hash: comprobar el login real y la idempotencia por separado.
+**Resultado observado:** dos roles activos `admin` y `consulta` y una cuenta administradora activa vinculada a `admin`. No copiar `usuario.password` ni datos reales en las evidencias públicas. La consulta por sí sola no demuestra la validez del hash; posteriormente un login HTTP real del administrador tuvo éxito mediante `password_verify()` (fase 2).
+
+### Paso E. Pruebas adicionales pendientes de ejecutar
+
+1. Volver a ejecutar el script usando la cuenta existente y confirmar mensaje de administrador previo; comparar conteos antes/después, sin imprimir hashes.
+2. En otra instalación limpia y aislada, verificar los INSERT de roles de `init.sql` sin borrar el volumen del proyecto en uso.
+3. Intentar inicializar sin variables, con un usuario duplicado y frente a un administrador inactivo; comprobar fallo seguro sin promociones ni alteraciones.
+4. Confirmar que `.env` no está en Git y que no existe ruta pública de bootstrap. La automatización de inicialización al arrancar con Docker sigue pendiente de diseño y prueba.
+
+Referencia de evidencia: [REGISTRO_FASE1_ADMIN.md](REGISTRO_FASE1_ADMIN.md).
 
 ## 1. Levantar entorno y ubicar URLs
 
@@ -49,6 +99,57 @@ SERVICIO_API:       __________________________
 SERVICIO_FRONT:     __________________________
 SERVICIO_MARIADB:   __________________________
 ```
+
+## 1.1. Comprobaciones reales realizadas de las fases 2 y 3
+
+**A. Sintaxis y pruebas locales del backend (comunicadas por el estudiante):**
+
+```powershell
+docker compose up -d --build
+docker compose exec api-investigacion php -l /app/index.php
+docker compose exec api-investigacion php -l /app/servicios/ensamblador.php
+docker compose exec api-investigacion php /app/pruebas/prueba_login_jwt.php
+docker compose exec api-investigacion php /app/pruebas/prueba_middleware_autorizacion.php
+```
+
+**Resultados observados:** sin errores de sintaxis; **15/15** pruebas del login; **28/28** del middleware. En Docker, MariaDB se informó saludable. Además, la longitud de `JWT_SECRET` visible a PHP fue **64**, sin imprimir el secreto:
+
+```powershell
+docker compose exec api-investigacion php -r "echo strlen((string)getenv('JWT_SECRET')), PHP_EOL;"
+```
+
+**B. Solicitud HTTP sin token (ejecutada):**
+
+```powershell
+curl.exe -i --max-time 10 http://localhost:8111/api/area_conocimiento
+```
+
+**Resultado real:** `HTTP/1.1 401 Unauthorized`, encabezado `WWW-Authenticate: Bearer realm="investigacion"`, cuerpo JSON `estado:401`.
+
+**C. Login HTTP y GET con Bearer (ejecutados, sin imprimir el token):**
+
+```powershell
+$usuario = Read-Host 'Nombre de usuario'
+$claveSegura = Read-Host 'Contraseña' -AsSecureString
+$puntero = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($claveSegura)
+try {
+    $claveTemporal = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($puntero)
+    $json = @{ username = $usuario; password = $claveTemporal } | ConvertTo-Json -Compress
+    $login = Invoke-RestMethod -Uri 'http://localhost:8111/api/login' -Method POST -ContentType 'application/json' -Body $json -ErrorAction Stop
+    $token = $login.datos.token
+    $respuesta = Invoke-WebRequest -Uri 'http://localhost:8111/api/area_conocimiento' -Method GET -Headers @{ Authorization = "Bearer $token" } -UseBasicParsing -ErrorAction Stop
+    Write-Output "HTTP con JWT: $([int]$respuesta.StatusCode)"
+    Write-Output "Expira en: $($login.datos.expira_en) segundos"
+    Write-Output "Rol(es): $($login.datos.usuario.roles -join ', ')"
+} finally {
+    [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($puntero)
+    Remove-Variable claveTemporal, claveSegura, json, login, token, respuesta -ErrorAction SilentlyContinue
+}
+```
+
+**Resultado real comunicado:** `ADMIN`, `admin`, `3600` segundos; GET con cabecera Bearer → **HTTP 200**. **No** confundir este GET autenticado con uno al que se omitió la cabecera: esa omisión no prueba autenticación. Hubo además una ejecución con Docker apagado que dio `0` en PowerShell; ese `0` no es una respuesta HTTP de la API.
+
+**D. Pendientes:** prueba HTTP de `consulta` → 200/403, expiración/alteración por HTTP, regresión de 16 recursos, CRUD administrativo, sesiones frontend y auditoría Git. Consultar [REGISTRO_FASE2_LOGIN.md](REGISTRO_FASE2_LOGIN.md) y [REGISTRO_FASE3_MIDDLEWARE.md](REGISTRO_FASE3_MIDDLEWARE.md).
 
 ## 2. Comprobar credenciales sin publicarlas
 
@@ -75,7 +176,7 @@ $tokenConsulta = $respuesta.datos.token
 if (-not $tokenConsulta) { throw "No llegó token en la ruta de respuesta acordada." }
 ```
 
-**Importante:** las claves `username`, `password` y `datos.token` siguen siendo de la propuesta contractual; adaptarlas si el equipo aprueba otra forma. No mostrar `$tokenConsulta` en videos o capturas.
+**Contrato utilizado y probado:** `username`, `password` y `datos.token` corresponden a la implementación actual del login. Nunca mostrar `$tokenConsulta` en capturas ni videos. No mostrar `$tokenConsulta` en videos o capturas.
 
 ## 3. Autenticación y 401/403
 
@@ -111,7 +212,7 @@ Con un token administrativo obtenido con el mismo flujo del §2, validar los sig
 | Crear asignación de rol repetida | 409 si UNIQUE/PK lo prohíbe |
 | Crear asignación con FK inexistente | Error coherente con contrato (propuesta 409) |
 | Retirar usuario / rol | Borrado lógico y exclusión de SELECT |
-| Dar de baja relación puente | Según política C8, **no asumir DELETE físico** |
+| Dar de baja relación puente | Según C8 aprobada, DELETE físico **solo del vínculo** (pendiente implementación y prueba) |
 
 ## 5. Frontend: sesión y logout
 
@@ -156,17 +257,19 @@ git ls-files .env.example
 
 | Comprobación | Resultado real | Evidencia |
 |---|---|---|
-| Bootstrap de roles/primer administrador, idempotencia, volumen existente | Pendiente (decisión documentada, sin código) | — |
-| Login correcto e incorrecto | Pendiente | — |
-| 401/403 por HTTP | Pendiente | — |
+| Primer bootstrap CLI en volumen local existente | **Comprobado parcialmente**: roles y admin registrados | Salida CLI y capturas phpMyAdmin facilitadas por estudiante |
+| Idempotencia, instalación limpia y arranque automático Docker | **Pendiente** | No se ejecutaron estas pruebas |
+| Login JWT / credenciales correctas | **Comprobado:** login HTTP `ADMIN` → 200 y 3600 s; suite 15/15 | `REGISTRO_FASE2_LOGIN.md` |
+| HTTP 401 sin token y 200 con Bearer | **Comprobado** en `/api/area_conocimiento` | `REGISTRO_FASE3_MIDDLEWARE.md` |
+| HTTP 403 de `consulta` real | **Pendiente**; solo suite automatizada de autorización | `REGISTRO_FASE3_MIDDLEWARE.md` |
 | CRUD usuario/rol/rol_usuario | Pendiente | — |
-| Hash de contraseñas | Pendiente | — |
+| Verificación de contraseña con `password_verify()` | **Comprobado en login real y suite de login**; auditoría de almacenamiento/hash de todos los usuarios pendiente | `REGISTRO_FASE2_LOGIN.md` |
 | Frontend + logout | Pendiente | — |
 | Regresión v1/v2 | Pendiente | — |
 | API apagada / frontend activo | Pendiente | — |
 | Ausencia de secretos versionados | Pendiente | — |
 
-> No marcar ninguno como aprobado hasta ejecutar pruebas y reunir evidencias con credenciales/token ocultos.
+> Ya hay evidencia reportada de login JWT y guarda HTTP, limitada a los casos descritos. No concluir que todos los 16 CRUD estén probados, que haya 403 HTTP de `consulta` real, ni que la v3 esté cerrada.
 
 ## 9. Pruebas negativas con evidencia HTTP y estado de base (pendientes de ejecutar)
 
@@ -191,13 +294,13 @@ try {
 
 | Caso | Estado documental actual | Comprobante a aportar |
 |---|---|---|
-| Base nueva con roles semilla y bootstrap | Diseñado; no probado | Logs sanitizados, SELECT de roles, login válido |
-| Base existente con los mismos roles | Diseñado; no probado | Conteos antes/después, sin `down -v` |
+| Base nueva con roles semilla y bootstrap | Pendiente en instalación limpia | Logs sanitizados, SELECT de roles, login válido |
+| Base persistente con roles y admin inicial | **Primera ejecución realizada**; falta comparar conteos en repetición | Salida CLI, SELECT de roles y asociación sin hash |
 | Repetir bootstrap | Diseñado; no probado | Sin usuario duplicado ni cambio de contraseña |
 | Credenciales iniciales faltantes | Diseñado; no probado | Proceso falla cerrado sin valor por defecto |
-| Token alterado/expirado/algoritmo inesperado | Diseñado; no probado | 401 y ningún efecto lateral |
-| Permisos admin/consulta en 16 recursos | Diseñado; no probado | Matriz de métodos, 200/204 o 403 según caso |
+| Token alterado/expirado/algoritmo inesperado | **Suite de login 15/15 y middleware 28/28**; faltan solicitudes HTTP específicas | 401 y ningún efecto lateral |
+| Permisos admin/consulta en 16 recursos | **Lógica probada automatizadamente** y un recurso con admin por HTTP; matriz HTTP completa pendiente | Matriz de métodos, 200/204 o 403 según caso |
 | CRUD de las tres tablas de seguridad | Diseñado; no probado | 201, 404, 409, 422 y cambio del estado real |
 | Logout y API apagada | Diseñado; no probado | Captura sin datos ni token expuesto |
 
-> **Importante:** las rutas, puertos y comandos de los apartados previos siguen sujetos al Docker Compose real. El ZIP contiene únicamente documentos; **ningún test de V3 se ejecutó** durante su preparación. La mención del ejemplo `v3_segundo_motor` no implica probar PostgreSQL en nuestro proyecto.
+> **Importante:** los puertos y servicios de la sección 0 se cotejaron contra el `docker-compose.yml` compartido. El documento incorpora evidencias locales reportadas de las fases 1, 2 y 3; el ZIP contiene únicamente Markdown y **no ejecuta pruebas nuevas**. El ejemplo `v3_segundo_motor` del profesor no implica usar PostgreSQL en el proyecto de investigación.

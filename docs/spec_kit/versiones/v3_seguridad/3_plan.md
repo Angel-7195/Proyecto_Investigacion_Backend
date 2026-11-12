@@ -2,6 +2,9 @@
 
 > **Estado:** propuesta revisada con el Spec Kit V2 recibido (29-10-2026). El DDL del script entregado se cotejó y quedó resuelto en C1; resolver C3–C11 y cotejar el código integrado y el estado de la BD en ejecución. C2 está documentado, aún requiere prueba de regresión. No modificar V1/V2 cerradas a ciegas.
 
+> **Evidencia de ejecución al 12-11-2026:** alta CLI del administrador ya efectuada; `POST /api/login` con JWT HS256 de **60 minutos** funcional (15/15 pruebas automatizadas y HTTP 200 real). Middleware integrado antes de los controladores: 28/28 pruebas automatizadas; GET real sin Bearer → 401 y con Bearer de `ADMIN` → 200 sobre `area_conocimiento`. Véanse `REGISTRO_FASE1_ADMIN.md`, `REGISTRO_FASE2_LOGIN.md` y `REGISTRO_FASE3_MIDDLEWARE.md`. Faltan CRUD administrativos, sesión frontend, matriz HTTP completa admin/consulta, regresión y cierre SDD.
+
+
 ## 1. Arquitectura y recorrido
 
 ```mermaid
@@ -78,6 +81,8 @@ Proyecto_Investigacion_Frontend/
       rol_usuario/...
 ```
 
+**Estructura efectivamente utilizada en las fases 2–3 (confirmada por archivos recibidos y salida de pruebas):** `controladores/ControladorLogin.php`, `servicios/Servicios_Autenticacion/ServicioAutenticacion.php`, `servicios/Servicios_Autenticacion/JwtHS256.php`, `repositorios/Repositorios_Autenticacion/{IRepositorioAutenticacion.php,RepositorioAutenticacionMariaDB.php}`, `middleware/MiddlewareAutorizacion.php`, `servicios/Servicios_Autorizacion/ServicioAutorizacion.php`, `excepciones/ExcepcionAcceso.php`, `pruebas/prueba_login_jwt.php` y `pruebas/prueba_middleware_autorizacion.php`. Las rutas anteriores `seguridad/Jwt.php`, `seguridad/Autorizador.php`, `ControladorAutenticacion.php` son ejemplos iniciales, **no nombres reales que deban duplicarse**.
+
 Las rutas de archivo de arriba son **orientativas**, deben ajustarse a la estructura existente. No crear controladores genéricos por nombre de tabla. No agregar acceso PDO al frontend.
 
 ## 3. Responsabilidades de capas
@@ -101,9 +106,9 @@ Las rutas de archivo de arriba son **orientativas**, deben ajustarse a la estruc
 1. Confirmar `main` con v2 cerrada, tag y regresión verde.
 2. Utilizar el inventario de 16 recursos/rutas/métodos ya documentado en V2; cotejar contra el router integrado. Para las **cinco asociaciones simples** conservar PUT/PATCH → `405`.
 3. **DDL fuente comprobado:** `usuario` y `rol` con id `INT AUTO_INCREMENT`; `rol_usuario` con PK compuesta y FKs `ON DELETE CASCADE`, sin `activo`. Contrastar con `SHOW CREATE TABLE` de la instancia real antes de ejecutar migraciones.
-4. Resolver C1–C12 con decisiones y verificaciones del equipo; C2/C12 tienen base documental y deben confirmarse en el código. **C3 (nombres de las semillas) y C5 (estrategia de bootstrap) cuentan ahora con decisión aceptada para el borrador, pero siguen pendientes la implementación, el procedimiento Docker definitivo y sus pruebas.**
+4. Resolver C1–C12 con decisiones y verificaciones del equipo; C2/C12 tienen base documental y deben confirmarse en el código. **C3 y C5 están aprobados; el estudiante ya ejecutó la creación inicial manual en su entorno. Siguen pendientes la segunda ejecución, la instalación limpia, el procedimiento Docker automático y las pruebas restantes.**
 
-### Fase A.1 — Inicialización de seguridad (decisión registrada; sin implementar aún)
+### Fase A.1 — Inicialización de seguridad (alta manual CLI probada; pruebas de repetición y arranque limpio pendientes)
 
 1. **Nuevo volumen:** agregar en `db/init.sql`, con comentario de cambio numerado en su cabecera, dos INSERT de `rol` por **nombre**, `admin` y `consulta`; no insertar contraseñas ni asumir IDs. Mantener las tablas del curso sin rediseño.
 2. **CLI exclusivo:** crear el archivo propuesto `api_investigacion/scripts/inicializar_admin.php` y ejecutarlo únicamente como proceso de consola autorizado, después de que MariaDB esté disponible. El script obtiene `ADMIN_INICIAL_USERNAME`, `ADMIN_INICIAL_EMAIL` y `ADMIN_INICIAL_PASSWORD` desde el entorno, valida presencia y seguridad mínima, usa `password_hash(PASSWORD_DEFAULT)`, consulta los IDs de los roles, crea el usuario inicial y relaciona `rol_usuario` **en una transacción**, con prepared statements en el repositorio/componente de acceso a datos; no publicar ninguna URL de bootstrap.
@@ -169,10 +174,10 @@ Las rutas de archivo de arriba son **orientativas**, deben ajustarse a la estruc
 | JSON y rutas específicas | Login y CRUD administrativo con contratos propios | Compatible |
 | Un front por versión | Pantallas y sesión PHP nuevas en repo frontend | Compatible |
 | No mezclar procesos | Front llama API HTTP y no tiene PDO | Compatible |
-| Borrado lógico | `usuario`/`rol` por `activo`; puente a aclarar | **Pendiente C8** |
+| Borrado lógico | `usuario`/`rol` por `activo`; `rol_usuario` se retira físicamente, según excepción aprobada | Acordado; falta implementar/probar |
 | Idioma y tipos | Español, `declare(strict_types=1);` | Compatible |
 | No anticipar v4 | Sin dashboard, PWA ni despliegue | Compatible |
-| Seguros por diseño | Contraseña hasheada, JWT firmado, control API y matriz de recursos que respeta `405` | **Pendiente C3–C10** |
+| Seguros por diseño | Contraseña hasheada, JWT 60 minutos, control API y matriz que respeta `405` | Alcance aprobado por equipo; desarrollo JWT y pruebas pendientes |
 | Constitución vigente | Verificar si la del equipo adaptó la del ejemplo | **Pendiente: versión actual del equipo** |
 
 > **Resultado:** el plan es coherente con los documentos del curso, pero NO se declara «aprobado» hasta resolver las cuestiones pendientes y revisar la constitución vigente del equipo.

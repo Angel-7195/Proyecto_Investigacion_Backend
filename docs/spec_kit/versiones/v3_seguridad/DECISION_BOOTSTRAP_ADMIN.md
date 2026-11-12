@@ -4,6 +4,8 @@
 **Estado:** acuerdo de diseño documentado con el estudiante; **sin implementación, sin ejecución de SQL y sin validación del profesor/equipo completo**.  
 **Fuentes:** `init(4).sql`, `0_METODOLOGIA.md`, `modulo_investigacion.md`, Spec Kit v2 y los documentos del Spec Kit v3.
 
+> **Estado a 10-11-2026:** acuerdo del equipo **implementado parcialmente y ejecutado** en el equipo del estudiante por comando CLI, sobre volumen existente. El resultado de alta y la asociación en MariaDB se confirmaron mediante salida de terminal y capturas; **idempotencia por repetición, base nueva y orquestación automática no se han probado**. Véase `REGISTRO_FASE1_ADMIN.md`. La política de contraseña inicial de esta implementación es mínimo **12 caracteres**, mediante variables efímeras en PowerShell.
+
 ## Necesidad
 
 La v3 exige `POST /api/login`, control de roles y CRUD de usuarios/roles exclusivo para administradores. El `init.sql` recibido crea `rol`, `usuario` y `rol_usuario`, pero **no contiene cuentas ni roles iniciales**. No se puede entrar a administrar sin al menos una cuenta que tenga el rol `admin`.
@@ -13,12 +15,12 @@ La v3 exige `POST /api/login`, control de roles y CRUD de usuarios/roles exclusi
 1. **Solo datos públicos en SQL:** añadir a `db/init.sql` dos registros `rol.nombre`: `admin` y `consulta`, con descripción. No fijar IDs ni incluir hash/contraseña. Anotar el cambio de semillas en la cabecera con un nuevo número.
 2. **Primer administrador en PHP:** crear un comando local y exclusivo de consola (`api_investigacion/scripts/inicializar_admin.php`), no expuesto por HTTP. Leer `ADMIN_INICIAL_USERNAME`, `ADMIN_INICIAL_EMAIL`, `ADMIN_INICIAL_PASSWORD` de un entorno no versionado; validar y crear el hash con `password_hash(PASSWORD_DEFAULT)`. Crear usuario y vínculo `rol_usuario` de manera transaccional usando los IDs reales de la base.
 3. **Repetición segura:** comprobar antes si ya existe un administrador válido; no crear otro ni sobrescribir su contraseña. Ante identificadores existentes incompatibles o cuentas administrativas inactivas, detenerse en lugar de asignar privilegios por sorpresa.
-4. **Compatibilidad Docker:** para volumen nuevo, los roles se siembran desde SQL; para volumen existente (donde `init.sql` ya no se ejecuta), la inicialización debe asegurar los roles faltantes por nombre **sin destruir datos**. Integrar el proceso en el arranque normal del compose cuando esté comprobado el esquema y los servicios.
+4. **Compatibilidad Docker:** para volumen nuevo, los roles se siembran desde SQL; para volumen existente (donde `init.sql` ya no se ejecuta), la inicialización debe asegurar los roles faltantes por nombre **sin destruir datos**. La implementación **actual** es por ejecución manual `docker compose run --rm --no-deps ...`; la eventual integración en el arranque normal del compose continúa pendiente de diseño/prueba.
 5. **Sin puerta trasera:** no agregar registro público, no registrar credenciales en logs, no guardar el secreto inicial en Git y retirar los valores temporales del entorno después del alta. Un primer arranque sin secreto configurado debe fallar cerrado, nunca crear un usuario de contraseña conocida.
 
 ## Fuera de esta decisión
 
-No se han fijado aún la duración del JWT, el conjunto completo de roles, el tratamiento de roles múltiples, la política de retiro de `rol_usuario`, el detalle de la orquestación Docker ni la recuperación administrativa. Estos puntos siguen en las clarificaciones de `2_spec.md` y **no se deben resolver improvisando en código**.
+La duración JWT está acordada en **60 minutos**; se aprobaron `admin`/`consulta`, varios roles por usuario, retiro físico del vínculo `rol_usuario` y protección del último administrador. Continúan pendientes de desarrollo y pruebas las rutas y claims concretos, los casos de recuperación administrativa, la orquestación Docker y la protección del frontend. Estos puntos siguen en las clarificaciones de `2_spec.md` y **no se deben resolver improvisando en código**.
 
 ## Evidencia exigida antes de darlo por hecho
 
@@ -40,4 +42,4 @@ No se han fijado aún la duración del JWT, el conjunto completo de roles, el tr
 | Falta contraseña inicial en primer arranque | Fallar cerrado, sin contraseña de ejemplo |
 | Volumen de MariaDB persistente | No borrar volumen ni exigir `docker compose down -v` |
 
-**Separación del acuerdo:** la decisión sobre crear el primer admin **sí** está registrada; **todavía no** constituye aprobación del comando Docker, de recuperación de cuentas ambiguas, de cambio obligatorio de contraseña inicial o del tratamiento de `rol_usuario.DELETE`. Esos aspectos se documentan como C5/C8/C9 antes de implementar. La inicialización no tendrá endpoint HTTP público.
+**Separación del acuerdo:** la decisión y el **comando manual Docker** ya tuvieron una ejecución satisfactoria reportada; **todavía no** se consideran probadas la repetición, la instalación limpia, recuperación de cuentas ambiguas ni la automatización. El equipo acordó el tratamiento de `rol_usuario.DELETE`, pero no está implementado ni probado. Esos aspectos se documentan como C5/C8/C9 antes de implementar. La inicialización no tendrá endpoint HTTP público.

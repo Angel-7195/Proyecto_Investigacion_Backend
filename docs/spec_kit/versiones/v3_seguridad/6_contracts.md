@@ -1,7 +1,8 @@
 # Contratos de la API — v3: autenticación y administración
 
-> **Borrador contractual, no aprobado.** Revisado contra `6_contracts.md` V2 (29-10-2026), que identifica **las rutas y operaciones reales documentadas** de los diez recursos con FK. El **DDL del script de seguridad ya fue comprobado con `init(4).sql`**; las reglas de negocio marcadas **PROPUESTA** siguen pendientes de aprobación y los contratos aún no se han probado contra código. Los contratos antiguos se conservan **después** del control de acceso.
+> **Documento contractual en desarrollo.** El login y la guarda ya se ejecutaron parcialmente; CRUD administrativos siguen como propuestas donde se indica. Revisado contra `6_contracts.md` V2 (29-10-2026), que identifica **las rutas y operaciones reales documentadas** de los diez recursos con FK. El **DDL del script de seguridad ya fue comprobado con `init(4).sql`**; las reglas de negocio marcadas **PROPUESTA** siguen pendientes de aprobación y los contratos de CRUD administrativos aún no se han probado contra código. Los contratos antiguos se conservan **después** del control de acceso.
 
+> **Actualización al 12-11-2026:** roles y administrador inicial creados localmente; login real `ADMIN` exitoso con JWT de 3600 segundos (**15/15** pruebas automatizadas); autorización central con **28/28** pruebas automatizadas, HTTP **401** sin token y **200** con Bearer válido para `area_conocimiento`. Persisten pendientes idempotencia del bootstrap, instalación limpia, matriz HTTP completa, CRUD administrativos, frontend y regresión. La evidencia proviene del estudiante, no de acceso directo a su Docker. Véanse [REGISTRO_FASE1_ADMIN.md](REGISTRO_FASE1_ADMIN.md), [REGISTRO_FASE2_LOGIN.md](REGISTRO_FASE2_LOGIN.md), [REGISTRO_FASE3_MIDDLEWARE.md](REGISTRO_FASE3_MIDDLEWARE.md) y [7_quickstart.md](7_quickstart.md).
 ## §0. Sobre común y autenticación
 
 El sobre de errores conserva el estilo de v1:
@@ -33,11 +34,15 @@ La inicialización no crea `POST /api/register`, `POST /api/bootstrap` ni `POST 
 
 Se probará que `POST /api/login` funciona con ese primer administrador. **Un usuario adicional** se crea desde `POST /api/usuario` solo una vez que la autenticación administrativa ya funciona. Los roles semilla **no tienen IDs fijos**; cualquier asociación consulta los IDs reales.
 
-Esta sección es un **contrato de operación interna**, no una ruta HTTP. La automatización de Docker y las comprobaciones de idempotencia están descritas en `3_plan.md`, pendientes de implementación.
+Esta sección es un **contrato de operación interna**, no una ruta HTTP. La ejecución manual CLI del bootstrap ya fue satisfactoria en el equipo del estudiante; la idempotencia por repetición, instalación limpia y automatización de Docker siguen pendientes. Véase `REGISTRO_FASE1_ADMIN.md`.
 
 ## §1. `POST /api/login` (ruta pública)
 
-El módulo **exige** la ruta y la entrega de JWT. **Propuesta de cuerpo, pendiente C9:**
+> **Contrato de fase 2 verificado parcialmente en ejecución (12-11-2026):** `POST /api/login` entregó en HTTP real `estado=200`, `datos.expira_en=3600`, `datos.usuario.username=ADMIN`, `datos.usuario.roles=["admin"]`. La suite automatizada reportó 15/15. No se comparó exhaustivamente el JSON de todos los errores por HTTP.
+
+
+
+El módulo **exige** la ruta y la entrega de JWT. **Cuerpo acordado por el equipo (`username` y `password`):**
 
 ```json
 {
@@ -46,7 +51,7 @@ El módulo **exige** la ruta y la entrega de JWT. **Propuesta de cuerpo, pendien
 }
 ```
 
-**Propuesta de respuesta 200:**
+**Respuesta 200: estructura observada en el login y contrastada con los archivos PHP recibidos; duración `expira_en` aprobada:**
 
 ```json
 {
@@ -65,7 +70,7 @@ El módulo **exige** la ruta y la entrega de JWT. **Propuesta de cuerpo, pendien
 }
 ```
 
-`expira_en: 3600` es **ejemplo alineado con los 60 minutos del §6.4**, no tiempo confirmado. El DDL confirma `usuario.id` como entero autoincremental (ejemplo de token `sub` como cadena de ese entero). Confirmar si `roles` se incluye en respuesta o en token.
+`expira_en: 3600` es la duración **aprobada por el equipo** (60 minutos). La fecha de expiración del JWT será `exp = iat + 3600`; el token sin `exp` válido se rechazará. El DDL confirma `usuario.id` como entero autoincremental (ejemplo de token `sub` como cadena de ese entero). **Confirmado en `ServicioAutenticacion.php` recibido:** `roles` se incluye en la respuesta JSON, mientras que `JwtHS256.php` emite identidad (`sub` y `username`) sin lista de roles; el middleware consulta los roles vigentes en MariaDB.
 
 - `200`: autenticación correcta, usuario activo.
 - `401`: credenciales no válidas; mensaje genérico sin diferenciar usuario o clave.
@@ -74,11 +79,15 @@ El módulo **exige** la ruta y la entrega de JWT. **Propuesta de cuerpo, pendien
 
 ## §2. Comprobación Bearer en rutas protegidas
 
+> **Contrato de fase 3 verificado parcialmente en ejecución (12-11-2026):** `GET /api/area_conocimiento` sin Authorization → **HTTP 401**, `WWW-Authenticate: Bearer realm="investigacion"`; la misma ruta con `Authorization: Bearer <JWT>` válido de `ADMIN` → **HTTP 200**. Se reportaron 28/28 pruebas automatizadas del middleware. **Falta** probar por HTTP con un usuario real `consulta`, rutas administrativas ya implementadas y todos los métodos de los 16 recursos.
+
+
+
 ```text
 Authorization: Bearer <JWT_HS256>
 ```
 
-**Comportamiento propuesto:** token ausente o inválido → `401`; token válido sin permiso → `403`. Validar firma, `exp`, claim de identidad y algoritmo permitido. Acordar política de rol vigente C6. No aceptar el token en parámetro de URL.
+**Comportamiento acordado e implementado en la guarda:** token ausente o inválido → `401`; token válido sin permiso → `403`. Se validan firma, `exp`, identidad y HS256 y se consultan los roles vigentes en MariaDB en cada petición. La matriz HTTP completa aún debe probarse con datos reales. No aceptar el token en parámetro de URL.
 
 Ejemplo 403:
 
@@ -149,15 +158,15 @@ Ejemplo GET **sin hash**:
 
 ## §5. Gestión de `rol_usuario` — **solo admin**
 
-El módulo exige gestión de asignaciones. El SQL confirma que **`usuario_id` y `rol_id` son INT, FK y PK compuesta**, y que no hay `id` propio ni `activo`. **Solo falta decidir la política de retiro y las operaciones permitidas**, sin añadir campos inexistentes.
+El módulo exige gestión de asignaciones. El SQL confirma que **`usuario_id` y `rol_id` son INT, FK y PK compuesta**, y que no hay `id` propio ni `activo`. **La política de retiro y los métodos ya fueron acordados; falta implementarlos**, sin añadir campos inexistentes.
 
 | Ruta **PROPUESTA** | Operación | Observación |
 |---|---|---|
 | `GET /api/rol_usuario` | Listar asignaciones vigentes | Datos solo para admin |
 | `GET /api/rol_usuario/{usuario_id}/{rol_id}` | Obtener relación | PK compuesta confirmada en SQL |
 | `POST /api/rol_usuario` | Crear relación | Comprobar ambas FK activas; duplicado → 409 |
-| `DELETE /api/rol_usuario/{usuario_id}/{rol_id}` | Retirar asignación | **Pendiente C8**: DELETE físico del vínculo o cambio de esquema aprobado; usuario/rol conservan borrado lógico |
-| `PUT` / `PATCH` | Actualizar asignación | **Propuesta C8:** responder `405` a PUT/PATCH; no hay campos editables aparte de las dos FK que constituyen la PK. |
+| `DELETE /api/rol_usuario/{usuario_id}/{rol_id}` | Retirar asignación | DELETE físico solo del vínculo; protegido contra retiro del último admin activo; usuario/rol conservan borrado lógico |
+| `PUT` / `PATCH` | Actualizar asignación | **Acordado C8:** responder `405`; las dos FK constituyen la PK y no hay campos adicionales editables. |
 
 **Propuesta de cuerpo de creación:**
 
@@ -200,17 +209,17 @@ En la columna «Idem» se mantiene la primera fila del mismo grupo. `POST` aplic
 
 ## §7. Logout: contrato FRONTEND, no suponer endpoint de API
 
-La documentación del curso exige **logout** y precisa que el frontend guarda el token en una sesión PHP. **Propuesta:** una ruta web de salida (nombre a definir con rutas reales) limpia la información de autenticación de `$_SESSION`, invalida la sesión y redirige a login. No inventar `POST /api/logout` a menos que C7 exija revocación en la API.
+La documentación del curso exige **logout** y precisa que el frontend guarda el token en una sesión PHP. **Decisión aprobada:** una ruta web de salida (nombre a definir con rutas reales) limpia la información de autenticación de `$_SESSION`, invalida la sesión y redirige a login. No inventar `POST /api/logout` a menos que C7 exija revocación en la API.
 
 **Comprobación:** después de salir, el frontend no envía Authorization y las vistas protegidas piden ingreso nuevo. Si una copia del JWT no ha expirado, seguirá siendo criptográficamente válida a menos que exista un mecanismo de revocación explícito; dejarlo escrito en la especificación definitiva.
 
-## §8. Decisiones pendientes antes de congelar contratos
+## §8. Comprobaciones antes de congelar contratos
 
 - [x] DDL fuente, PK, UNIQUE y FK de usuario/rol/rol_usuario comprobados con `init(4).sql`; [ ] cotejar con la BD activa.
-- [ ] Entrada exacta al login y sobre de salida, tiempo y claims del JWT.
-- [ ] CRUD completo de puente: rutas, retiro y estrategia de cambio de asignación.
-- [ ] Matriz final de acceso y estado de permisos al retirar un rol o usuario.
-- [ ] Comportamiento de logout y papel de posible endpoint API.
+- [x] Login por `username` + `password` y vigencia 3600 segundos aprobados. [ ] Confirmar campos opcionales del sobre de respuesta y claims definitivos.
+- [x] Política de puente: DELETE físico del vínculo; PUT/PATCH 405; proteger último admin. [ ] Validar rutas finales contra router.
+- [x] Equipo aprobó matriz `admin`/`consulta` y comprobar usuario/rol activos en base. [ ] Implementar y probar.
+- [x] Logout solo frontend por sesión PHP; no endpoint de revocación API en v3. [ ] Probar.
 - [ ] Códigos para FK, usuario desactivado y reglas de retiro de admin actual.
 - [x] Decisión sobre roles semilla `admin`/`consulta` y creación del administrador por PHP exclusivo CLI (sin registro público). [ ] Verificar proceso idempotente en base nueva y volumen existente sin revelar ni sobrescribir contraseñas.
 - [x] Rutas y operaciones V2 levantadas de `6_contracts.md` V2. [ ] Cotejo final con código integrado y ejecución de regresión.
@@ -235,7 +244,7 @@ Los errores nunca deben incluir el contenido del Bearer, hash de contraseña, se
 |---|---|---|---|---|
 | `usuario` | `username`, `email`, `password`, `nombre_completo` opcional | `username`, `email`, `nombre_completo`; **definir explícitamente contraseña** en C9 | Subconjunto de campos aprobados | `id`, `activo`, fechas, hash emitido desde BD |
 | `rol` | `nombre`, `descripcion` opcional | `nombre`, `descripcion` (admite NULL si se aprueba) | Subconjunto de campos aprobados | `id`, `activo`, `fecha_creacion` |
-| `rol_usuario` | `usuario_id`, `rol_id` | **Pendiente C8**: ¿reemplazo transaccional de la pareja o 405? | **Pendiente C8** | `id` no existe; tampoco `activo` |
+| `rol_usuario` | `usuario_id`, `rol_id` | `405` | `405` | `id` no existe; tampoco `activo` |
 
 **No presentar la fila de PUT de `usuario` como contrato definitivo:** el requisito docente exige CRUD, pero no dice si editar perfil debe obligar a cambiar contraseña. Es preferible preservar el hash actual en una edición sin `password` y diseñar cambio de clave explícito, pendiente de acuerdo C9. Para PATCH `{}` en los nuevos recursos, el equipo deberá fijar un único código; **no heredar automáticamente** los distintos criterios V1/V2.
 

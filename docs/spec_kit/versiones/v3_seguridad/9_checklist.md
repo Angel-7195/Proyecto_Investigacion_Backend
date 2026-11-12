@@ -1,6 +1,8 @@
 # Checklist de requisitos y cierre — v3: Investigación
 
-> **No es autoaprobación de IA.** Lo revisa el equipo en tres momentos: (1) antes de programar, para verificar calidad de la spec; (2) durante pruebas; (3) antes del tag v3. Ninguna casilla está marcada.
+> **No es autoaprobación de IA.** Lo revisa el equipo en tres momentos: (1) antes de programar, para verificar calidad de la spec; (2) durante pruebas; (3) antes del tag v3. Las casillas **de aprobación humana** no están marcadas; los resultados de pruebas ya ejecutadas se registran por separado.
+
+> **Nota de evidencia actualizada al 12-11-2026:** Fase 1: bootstrap manual local; Fase 2: **15/15** pruebas de login/JWT y login real HTTP 200; Fase 3: **28/28** pruebas de middleware y HTTP real `401` sin token / `200` con Bearer para `area_conocimiento`. La evidencia está en los registros de fases 1, 2 y 3. **No** se marcan por IA los criterios de aceptación amplios ni las compuertas humanas; hay pruebas pendientes de usuarios `consulta`, CRUD administrativos, regresión completa e instalación limpia.
 
 ## I. COMPUERTA PREVIA — calidad de requisitos (antes de escribir código)
 
@@ -14,7 +16,7 @@ Esta parte adapta `9_checklist.md` del ejemplo `v3_segundo_motor`: valida **docu
 - [ ] Los nombres y tipos del script `init(4).sql` están documentados en `5_data_model.md`.
 - [ ] Está previsto cotejar el esquema de la BD en ejecución con ese script antes de implementar.
 - [ ] El significado exacto de logout no induce a creer que `session_destroy()` revoca un JWT válido.
-- [ ] La decisión de **sembrar roles públicos y crear el primer admin por PHP solo CLI** está registrada coherentemente en spec/plan/research/model/contracts/quickstart/tasks (9-11-2026). **Esto no significa que esté implementada.**
+- [ ] La decisión de **sembrar roles y crear el primer admin por PHP solo CLI** está registrada coherentemente. **La primera ejecución manual sí se realizó**; faltan las pruebas de repetición, instalación nueva y arranque automático.
 - [ ] El procedimiento del primer admin es seguro, idempotente y verificable; no existen credenciales fijas ni una ruta HTTP pública de bootstrap.
 - [ ] Se definieron los escenarios de prueba para roles existentes, cuenta administrativa previa/inactiva y un usuario del mismo nombre sin rol; su ejecución se reserva para la compuerta de cierre.
 - [ ] Se mantiene el alcance de v4 fuera de esta versión.
@@ -30,6 +32,17 @@ Esta parte adapta `9_checklist.md` del ejemplo `v3_segundo_motor`: valida **docu
 - [ ] El alcance no contiene PostgreSQL, `MOTOR`, dashboard, PWA, publicación ni otra versión futura.
 - [ ] `4_research.md` consigna alternativas, decisión y consecuencias para cada tema importante, sin convertir propuestas pendientes en acuerdos.
 
+
+## Evidencias parciales registradas (no constituyen firma de las compuertas)
+
+| Tema | Evidencia comunicada | Qué NO demuestra aún |
+|---|---|---|
+| Bootstrap de `admin` y `consulta` | Alta CLI y SELECT en phpMyAdmin | Idempotencia y base nueva |
+| Login / JWT | 15/15 suite, HTTP 200 de `ADMIN`, JWT de 3600 s | Todos los casos HTTP de errores y seguridad de secretos en Git |
+| Middleware / roles | 28/28 suite; 401 sin Bearer y 200 con Bearer en `/api/area_conocimiento` | Matriz real de 16 CRUD y 403 con usuario real `consulta` |
+| Backend sintáctico | `php -l` sin errores en los archivos registrados | Ausencia de errores de lógica o regresiones |
+
+**Fuentes:** [REGISTRO_FASE1_ADMIN.md](REGISTRO_FASE1_ADMIN.md), [REGISTRO_FASE2_LOGIN.md](REGISTRO_FASE2_LOGIN.md), [REGISTRO_FASE3_MIDDLEWARE.md](REGISTRO_FASE3_MIDDLEWARE.md). Los checks de B–G siguen abiertos cuando agrupan varios escenarios y no hay evidencia completa de todos ellos.
 
 ## II. COMPUERTA DE CIERRE — código y pruebas (solo después de implementar)
 
