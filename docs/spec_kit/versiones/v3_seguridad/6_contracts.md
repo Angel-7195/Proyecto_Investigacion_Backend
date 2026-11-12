@@ -1,6 +1,6 @@
 # Contratos de la API — v3: autenticación y administración
 
-> **Documento contractual en desarrollo.** El login y la guarda ya se ejecutaron parcialmente; CRUD administrativos siguen como propuestas donde se indica. Revisado contra `6_contracts.md` V2 (29-10-2026), que identifica **las rutas y operaciones reales documentadas** de los diez recursos con FK. El **DDL del script de seguridad ya fue comprobado con `init(4).sql`**; las reglas de negocio marcadas **PROPUESTA** siguen pendientes de aprobación y los contratos de CRUD administrativos aún no se han probado contra código. Los contratos antiguos se conservan **después** del control de acceso.
+> **Documento contractual en desarrollo (12-11-2026).** El login JWT y el middleware tienen pruebas locales automatizadas e HTTP; el CRUD **`usuario` ya fue probado parcialmente por HTTP contra MariaDB** (ver `REGISTRO_FASE4_USUARIO.md`). `rol` y `rol_usuario` permanecen pendientes. Revisado contra V2 (29-10-2026) y el DDL de seguridad de `init(4).sql`. Las reglas marcadas **PROPUESTA** siguen sujetas a aprobación y los contratos antiguos deben conservarse después del control de acceso.
 
 > **Actualización al 12-11-2026:** roles y administrador inicial creados localmente; login real `ADMIN` exitoso con JWT de 3600 segundos (**15/15** pruebas automatizadas); autorización central con **28/28** pruebas automatizadas, HTTP **401** sin token y **200** con Bearer válido para `area_conocimiento`. Persisten pendientes idempotencia del bootstrap, instalación limpia, matriz HTTP completa, CRUD administrativos, frontend y regresión. La evidencia proviene del estudiante, no de acceso directo a su Docker. Véanse [REGISTRO_FASE1_ADMIN.md](REGISTRO_FASE1_ADMIN.md), [REGISTRO_FASE2_LOGIN.md](REGISTRO_FASE2_LOGIN.md), [REGISTRO_FASE3_MIDDLEWARE.md](REGISTRO_FASE3_MIDDLEWARE.md) y [7_quickstart.md](7_quickstart.md).
 ## §0. Sobre común y autenticación
@@ -101,33 +101,46 @@ Ejemplo 403:
 
 ## §3. CRUD de `usuario` — **solo admin**
 
-| Ruta específica | Operación | Respuestas esperadas (además de 401/403/500) |
-|---|---|---|
-| `GET /api/usuario` | Listar activos, sin hash | `200`, `204` |
-| `GET /api/usuario/{id}` | Obtener sin hash | `200`, `404` |
-| `POST /api/usuario` | Crear, hash de contraseña | `201`, `409`, `422` |
-| `PUT /api/usuario/{id}` | Reemplazar campos admitidos | `200`, `404`, `409`, `422` |
-| `PATCH /api/usuario/{id}` | Modificar campos admitidos | `200`, `404`, `409`, `422`; `400` solo si se acuerda regla concreta |
-| `DELETE /api/usuario/{id}` | Retirar lógicamente | `200`, `404`, `409` si la regla aprobada impide retiro |
+> **Estado a 12-11-2026:** rutas ya implementadas y comprobadas parcialmente mediante HTTP real en MariaDB local. Las respuestas que se anotan como observadas no equivalen todavía a cobertura de todos los errores, a verificación con un usuario real `consulta` ni a validación del frontend. Evidencias en `REGISTRO_FASE4_USUARIO.md`.
 
-**Propuesta de POST**, con longitudes verificadas en SQL (`username` 100, `email` 150, `nombre_completo` 200, hash 255); las reglas de contraseñas siguen pendientes de aprobar:
+| Ruta | Función | Códigos relevantes | Evidencia real |
+|---|---|---|---|
+| `GET /api/usuario` | Listar usuarios activos sin hash | 200 / 204 | **200**, un usuario en el momento de la prueba |
+| `GET /api/usuario/{id}` | Obtener usuario activo | 200 / 404 | **200** ID 2; **404** tras retiro |
+| `POST /api/usuario` | Crear con `password_hash()` | 201 / 409 / 422 | **201** ID 2; **409** por correo duplicado |
+| `PUT /api/usuario/{id}` | Reemplazar perfil (sin contraseña) | 200 / 404 / 409 / 422 | **200**, cambio persistente |
+| `PATCH /api/usuario/{id}` | Modificar campos del perfil | 200 / 404 / 409 / 422 | **200**; **409** por `username` duplicado |
+| `PATCH /api/usuario/{id}/password` | Cambiar contraseña explícitamente | 200 / 404 / 422 | **200**, sin prueba directa posterior de `password_verify()` con la clave nueva |
+| `DELETE /api/usuario/{id}` | Borrado lógico | 200 / 404 / 409 | **200**, seguido de GET **404** y `activo=0` |
+
+**Seguridad:** cualquier ruta anterior requiere JWT de `admin`. El `GET /api/usuario/2` sin `Authorization` devolvió **401**. La restricción de `consulta` en estas rutas fue probada en suite de middleware, pero sigue pendiente su prueba HTTP con una cuenta de rol `consulta` real.
+
+### Campos aceptados
+
+- **POST:** `username` (obligatorio, hasta 100 caracteres), `email` (obligatorio, formato válido, hasta 150), `password` (obligatorio) y `nombre_completo` (opcional/null, hasta 200).
+- **PUT:** `username` y `email` obligatorios; `nombre_completo` opcional, con reemplazo de perfil. **No acepta `password`.**
+- **PATCH de perfil:** al menos uno de `username`, `email`, `nombre_completo`; `{}` devuelve **422**. No acepta `password`.
+- **PATCH de contraseña:** cuerpo `{ "password": "nueva-clave" }`, sin otros campos. El código de servicio usa mínimo **12 bytes y máximo 72 bytes**; el máximo está implementado por la limitación de bcrypt de PHP 8.3 y **queda sujeto a ratificación de requisito por el equipo**.
+- **No editables por cliente:** `id`, `activo`, marcas de tiempo, hash almacenado. El `username` y el correo tienen restricciones `UNIQUE` y los duplicados observados devolvieron `409`.
+
+**Nunca** devolver `password` ni su hash en JSON de listado, ficha, creación o actualización. En el POST HTTP observado no apareció el campo `password`; la suite aislada comprobó la serialización y los hashes. La consulta SQL local mostró el prefijo `$2y$` y 60 caracteres para dos hashes, no su contenido.
+
+Ejemplo de solicitud POST (**solo ilustrativo, no copiar contraseñas de prueba a Git**):
 
 ```json
 {
   "username": "usuario_ejemplo",
-  "password": "clave-solo-de-entrada",
+  "password": "clave-segura-de-ejemplo",
   "email": "ejemplo@dominio.invalid",
   "nombre_completo": "Persona de ejemplo"
 }
 ```
 
-**Nunca** devolver el campo `password`, ni el hash, en `datos` del POST, GET o actualizaciones. No permitir que el frontend escriba `activo` o el hash almacenado. Definir si la contraseña es obligatoria en PUT y cómo cambiarla sin sobrescribirla accidentalmente (**contrato de cambio de contraseña pendiente en C9/clarificación específica**).
-
-Ejemplo GET **sin hash**:
+**Ejemplo de `datos` en una respuesta exitosa, sin hash** (el ID proviene de MariaDB):
 
 ```json
 {
-  "id": "<ID_REAL>",
+  "id": 2,
   "username": "usuario_ejemplo",
   "email": "ejemplo@dominio.invalid",
   "nombre_completo": "Persona de ejemplo"
@@ -242,11 +255,11 @@ Los errores nunca deben incluir el contenido del Bearer, hash de contraseña, se
 
 | Recurso | POST de creación | PUT de reemplazo | PATCH | Campos no editables |
 |---|---|---|---|---|
-| `usuario` | `username`, `email`, `password`, `nombre_completo` opcional | `username`, `email`, `nombre_completo`; **definir explícitamente contraseña** en C9 | Subconjunto de campos aprobados | `id`, `activo`, fechas, hash emitido desde BD |
+| `usuario` | `username`, `email`, `password`, `nombre_completo` opcional | `username`, `email`, `nombre_completo`; contraseña en ruta PATCH separada | Subconjunto de campos aprobados | `id`, `activo`, fechas, hash emitido desde BD |
 | `rol` | `nombre`, `descripcion` opcional | `nombre`, `descripcion` (admite NULL si se aprueba) | Subconjunto de campos aprobados | `id`, `activo`, `fecha_creacion` |
 | `rol_usuario` | `usuario_id`, `rol_id` | `405` | `405` | `id` no existe; tampoco `activo` |
 
-**No presentar la fila de PUT de `usuario` como contrato definitivo:** el requisito docente exige CRUD, pero no dice si editar perfil debe obligar a cambiar contraseña. Es preferible preservar el hash actual en una edición sin `password` y diseñar cambio de clave explícito, pendiente de acuerdo C9. Para PATCH `{}` en los nuevos recursos, el equipo deberá fijar un único código; **no heredar automáticamente** los distintos criterios V1/V2.
+**Contrato de `usuario` ya implementado:** el `PUT` reemplaza el perfil sin incluir `password`; `PATCH` de perfil exige al menos un campo y devuelve `422` para `{}`; la contraseña cambia mediante `PATCH /api/usuario/{id}/password`. Este comportamiento se registró en C9 y en `REGISTRO_FASE4_USUARIO.md`. Los demás recursos nuevos deben conservar sus propios contratos; no extrapolar automáticamente los códigos entre V1/V2.
 
 ### 9.3 Respuestas tipo (propuestas consistentes con los sobres heredados)
 

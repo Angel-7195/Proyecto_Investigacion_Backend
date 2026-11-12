@@ -2,7 +2,7 @@
 
 > **No es autoaprobación de IA.** Lo revisa el equipo en tres momentos: (1) antes de programar, para verificar calidad de la spec; (2) durante pruebas; (3) antes del tag v3. Las casillas **de aprobación humana** no están marcadas; los resultados de pruebas ya ejecutadas se registran por separado.
 
-> **Nota de evidencia actualizada al 12-11-2026:** Fase 1: bootstrap manual local; Fase 2: **15/15** pruebas de login/JWT y login real HTTP 200; Fase 3: **28/28** pruebas de middleware y HTTP real `401` sin token / `200` con Bearer para `area_conocimiento`. La evidencia está en los registros de fases 1, 2 y 3. **No** se marcan por IA los criterios de aceptación amplios ni las compuertas humanas; hay pruebas pendientes de usuarios `consulta`, CRUD administrativos, regresión completa e instalación limpia.
+> **Nota de evidencia actualizada al 12-11-2026:** Fase 1: bootstrap manual local; Fase 2: **15/15** pruebas de login/JWT y login real HTTP 200; Fase 3: **28/28** pruebas del middleware y HTTP real `401` sin token / `200` con Bearer para `area_conocimiento`; **Fase 4 (`usuario`): 28/28 pruebas aisladas, CRUD principal probado por HTTP y MariaDB**. La evidencia está en los registros de las cuatro fases. **No** se marcan por IA los criterios amplios ni las compuertas humanas; siguen pendientes `consulta` real, `rol`, `rol_usuario`, eliminación real del último administrador en BD descartable, regresión completa e instalación limpia.
 
 ## I. COMPUERTA PREVIA — calidad de requisitos (antes de escribir código)
 
@@ -40,9 +40,10 @@ Esta parte adapta `9_checklist.md` del ejemplo `v3_segundo_motor`: valida **docu
 | Bootstrap de `admin` y `consulta` | Alta CLI y SELECT en phpMyAdmin | Idempotencia y base nueva |
 | Login / JWT | 15/15 suite, HTTP 200 de `ADMIN`, JWT de 3600 s | Todos los casos HTTP de errores y seguridad de secretos en Git |
 | Middleware / roles | 28/28 suite; 401 sin Bearer y 200 con Bearer en `/api/area_conocimiento` | Matriz real de 16 CRUD y 403 con usuario real `consulta` |
+| CRUD `usuario` | 28/28 suite; GET/POST/PUT/PATCH/PATCH password/DELETE por HTTP; 409 duplicados; 401 sin JWT; SQL `activo=0` y formato hash `$2y$` | Rechazo del último admin en base real, `password_verify()` directo de clave nueva, 403 con `consulta`, cobertura de 422 y regresión |
 | Backend sintáctico | `php -l` sin errores en los archivos registrados | Ausencia de errores de lógica o regresiones |
 
-**Fuentes:** [REGISTRO_FASE1_ADMIN.md](REGISTRO_FASE1_ADMIN.md), [REGISTRO_FASE2_LOGIN.md](REGISTRO_FASE2_LOGIN.md), [REGISTRO_FASE3_MIDDLEWARE.md](REGISTRO_FASE3_MIDDLEWARE.md). Los checks de B–G siguen abiertos cuando agrupan varios escenarios y no hay evidencia completa de todos ellos.
+**Fuentes:** [REGISTRO_FASE1_ADMIN.md](REGISTRO_FASE1_ADMIN.md), [REGISTRO_FASE2_LOGIN.md](REGISTRO_FASE2_LOGIN.md), [REGISTRO_FASE3_MIDDLEWARE.md](REGISTRO_FASE3_MIDDLEWARE.md) y [REGISTRO_FASE4_USUARIO.md](REGISTRO_FASE4_USUARIO.md). Los checks de B–G siguen abiertos cuando agrupan varios escenarios y no hay evidencia completa de todos ellos.
 
 ## II. COMPUERTA DE CIERRE — código y pruebas (solo después de implementar)
 
@@ -85,6 +86,19 @@ Las secciones B–G **no cuentan** para aprobar anticipadamente la calidad de la
 - [ ] El primer administrador está creado con hash, asociación por ID real, transacción y datos suministrados fuera de Git.
 - [ ] Repetir el arranque no reescribe su contraseña, no crea otro administrador y no conserva el secreto de bootstrap innecesariamente.
 - [ ] Sin contraseña inicial configurada, no se crea cuenta insegura ni contraseña predecible; el mensaje de error no expone secretos.
+
+### D.1. Resultados parciales verificados de `usuario` (no aprueban automáticamente la sección D)
+
+- [x] HTTP 200 en listado y ficha mediante JWT admin, sin `password` en respuesta de listado observada.
+- [x] POST 201 de usuario temporal, POST con correo duplicado 409 y PATCH con username duplicado 409.
+- [x] PUT y PATCH 200 con GET posterior que confirma persistencia.
+- [x] PATCH de contraseña 200 (sin validar directamente el nuevo hash con la clave aleatoria).
+- [x] DELETE 200, GET posterior 404, fila conservada con `activo=0`.
+- [x] GET individual sin JWT devuelve 401.
+- [x] Hash con prefijo `$2y$` y longitud 60; JOIN con un administrador activo (consultas de solo lectura).
+- [ ] Validar rechazo **real** de retirar al último administrador en una BD descartable.
+- [ ] Validar por HTTP la restricción 403 para un usuario real `consulta` y los casos de 422 adicionales.
+- [ ] Comprobar directamente el hash de una contraseña recién cambiada con `password_verify()`.
 
 ## E. Frontend y separación
 

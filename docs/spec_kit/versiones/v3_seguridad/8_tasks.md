@@ -1,6 +1,6 @@
 # Tareas — v3: Seguridad (Investigación)
 
-> Orden sugerido: especificar → comprobar el esquema → implementar por capas → probar API y frontend → regresión → tag. Asignar responsables y commits del equipo; las casillas de **aceptación final** permanecen abiertas hasta revisión del equipo. Algunas tareas con evidencia ejecutada se marcaron como completadas de forma **acotada**; ello no equivale a cerrar una fase ni aprobar compuertas SDD. Ver registros de fases 1, 2 y 3.
+> Orden sugerido: especificar → comprobar el esquema → implementar por capas → probar API y frontend → regresión → tag. Asignar responsables y commits del equipo; las casillas de **aceptación final** permanecen abiertas hasta revisión del equipo. Algunas tareas con evidencia ejecutada se marcaron como completadas de forma **acotada**; ello no equivale a cerrar una fase ni aprobar compuertas SDD. Ver registros de fases 1, 2, 3 y 4.
 
 ## Fase 0 — Compuertas SDD y base v2
 
@@ -90,14 +90,29 @@
 
 ## Fase 5 — CRUD administrativo API
 
-- [ ] Rutas específicas `usuario`: GET listado/individual, POST, PUT, PATCH, DELETE.
+- [x] Rutas específicas `usuario`: GET listado/individual, POST, PUT, PATCH, DELETE **implementadas y probadas por HTTP en MariaDB local**; `PATCH /api/usuario/{id}/password` probado con 200. Casos negativos restantes pendientes.
 - [ ] Rutas específicas `rol`: GET listado/individual, POST, PUT, PATCH, DELETE.
 - [ ] Rutas específicas `rol_usuario`: operaciones aprobadas en C8.
 - [ ] Validación de JSON, campos, llaves y listas blancas según esquema.
 - [ ] Tratamiento de 204/400/404/409/422/500 sin filtración de SQL.
 - [ ] Pruebas contra el uso directo de las rutas por `consulta` y usuarios sin token.
 
-**Verificación:** Postman demuestra tres recursos administrativos y que ninguna respuesta incluye `password`.
+**Verificación parcial realizada:** CRUD `usuario` probado con PowerShell + JWT real y MariaDB: 28/28 suite aislada, HTTP 200/201/404/409/401 y `activo=0` tras DELETE; POST observado sin `password` en JSON. **No** se probó Postman ni se completaron los otros dos CRUD ni la matriz completa de roles. Fuente: `REGISTRO_FASE4_USUARIO.md`.
+
+### Evidencias concretas de Fase 5 — `usuario` (12-11-2026)
+
+- [x] Consultar listado y ficha de usuarios con JWT admin (HTTP `200`).
+- [x] Crear usuario de prueba con JWT admin (HTTP `201`, ID `2` solo local); sin hash en la respuesta observada.
+- [x] Cambiar perfil por `PUT` y `PATCH` y comprobar persistencia con GET posterior (`200`).
+- [x] Rechazar `username` y correo duplicados (`409` observado).
+- [x] Cambiar contraseña por ruta específica (`200`); falta validación directa posterior con contraseña nueva.
+- [x] Retirar lógicamente usuario de prueba (`200`), verificar `404` en GET posterior y `activo=0` en MariaDB.
+- [x] Rechazar GET `/api/usuario/2` sin JWT (`401`).
+- [x] Inspeccionar solo **formato** de hashes (`$2y$`, 60 caracteres) y contar un administrador activo mediante SQL de lectura.
+- [ ] Probar en una base descartable que no se puede retirar al **último** administrador (la prueba aislada pasa, la base real no se puso en riesgo).
+- [ ] Verificar `password_verify()` sobre la contraseña recién cambiada en una cuenta con rol activo de prueba.
+- [ ] Probar permisos `403` con usuario `consulta` real y todos los recursos administrativos.
+- [ ] Cerrar contrato completo y pruebas de `rol_usuario` con coherencia transaccional al administrar el último admin.
 
 ## Fase 6 — Frontend PHP
 
@@ -159,4 +174,4 @@ No marcar tareas hechas porque exista el archivo Markdown. Las fases de arriba s
 
 ### Distribución recomendada en pareja (no asignación automática)
 
-El login y el middleware ya están implementados parcialmente y probados en el backend local. Para las siguientes ramas se mantiene el **contrato acordado de `POST /api/login`** y la matriz de permisos; los CRUD administrativos y el frontend deben integrarse sin reabrirlos arbitrariamente. Cada estudiante realiza commits propios y el encargado de `main` integra por Pull Request. Las decisiones C3–C11 deben tener responsable y fecha de aprobación antes de empezar sus tareas dependientes.
+El login y el middleware ya están implementados parcialmente y probados en el backend local. Para las siguientes ramas se mantiene el **contrato acordado de `POST /api/login`** y la matriz de permisos; los CRUD `rol`, `rol_usuario` y el frontend deben integrarse sin reabrir arbitrariamente los contratos del login, middleware ni `usuario`. Cada estudiante realiza commits propios y el encargado de `main` integra por Pull Request. Las decisiones C3–C11 deben tener responsable y fecha de aprobación antes de empezar sus tareas dependientes.

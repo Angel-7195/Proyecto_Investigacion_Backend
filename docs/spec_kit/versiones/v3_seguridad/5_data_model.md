@@ -3,6 +3,8 @@
 > **Fuente comprobada:** archivo `init(4).sql` recibido para esta revisión, sección «MÓDULO DE GESTIÓN DE USUARIOS», DDL de `rol`, `usuario` y `rol_usuario`. Esta sección describe el **SQL compartido**; su correspondencia con una base MariaDB ya inicializada se debe verificar con `SHOW CREATE TABLE`, dado que Docker no vuelve a ejecutar `init.sql` en un volumen existente. No se modifica el esquema heredado.
 
 > **Actualización al 12-11-2026:** roles y administrador inicial creados localmente; login real `ADMIN` exitoso con JWT de 3600 segundos (**15/15** pruebas automatizadas); autorización central con **28/28** pruebas automatizadas, HTTP **401** sin token y **200** con Bearer válido para `area_conocimiento`. Persisten pendientes idempotencia del bootstrap, instalación limpia, matriz HTTP completa, CRUD administrativos, frontend y regresión. La evidencia proviene del estudiante, no de acceso directo a su Docker. Véanse [REGISTRO_FASE1_ADMIN.md](REGISTRO_FASE1_ADMIN.md), [REGISTRO_FASE2_LOGIN.md](REGISTRO_FASE2_LOGIN.md), [REGISTRO_FASE3_MIDDLEWARE.md](REGISTRO_FASE3_MIDDLEWARE.md) y [7_quickstart.md](7_quickstart.md).
+> **Contraste con registros reales de MariaDB (12-11-2026):** el estudiante observó dos filas de `usuario` (`ADMIN` activo y el usuario de prueba ID 2 con `activo=0`), ambas con prefijo de hash bcrypt `$2y$` y longitud 60; se contabilizó **un administrador activo** mediante JOIN de `usuario`, `rol_usuario` y `rol`. Estas comprobaciones **no sustituyen** un `SHOW CREATE TABLE` ni una auditoría exhaustiva de contraseñas; consultar [REGISTRO_FASE4_USUARIO.md](REGISTRO_FASE4_USUARIO.md).
+
 ## 1. Tabla `rol`
 
 | Columna | Tipo literal en `init.sql` | Restricción / valor inicial |

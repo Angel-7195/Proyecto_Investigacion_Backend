@@ -117,7 +117,7 @@ Las rutas de archivo de arriba son **orientativas**, deben ajustarse a la estruc
 5. **Un solo comando:** cuando se implemente, revisar `docker-compose.yml` y definir un proceso de inicialización de ejecución única con orden de dependencia/estado saludable, integrado al arranque documentado `docker compose up -d --build`. Un entorno sin credenciales iniciales en su primera instalación debe **fallar cerrado** y emitir una instrucción no sensible de configuración, nunca crear `admin/admin123`.
 6. **Exposición y cierre:** documentar `.env.example` **solo con nombres y valores ficticios/vacíos**, retirar el secreto de bootstrap del entorno una vez realizado el alta y requerir un cambio de contraseña inicial si el equipo lo adopta en la política de credenciales. No considerar el cierre aprobado sin pruebas reales de instalación limpia, reinicio y actualización de un volumen existente.
 
-**Compuertas:** esta fase concreta la decisión C5 pero no equivale a código probado ni resuelve todavía la matriz C4, el JWT C6 y la política C8.
+**Compuertas:** la primera ejecución manual de C5 se probó, y posteriormente se implementaron y probaron parcialmente C6 (JWT) y C4 (middleware). Esta sección describe la estrategia de inicialización y **no** cierra instalación limpia, idempotencia, matriz completa de roles ni política C8.
 
 ### Fase B — Modelo y dependencias
 
@@ -139,6 +139,15 @@ Las rutas de archivo de arriba son **orientativas**, deben ajustarse a la estruc
 1. Implementar operaciones de `usuario`, `rol` y `rol_usuario` conforme al DDL aprobado.
 2. Garantizar que ningún GET o respuesta incluya `password`, ni siquiera el hash.
 3. Comprobar `UNIQUE` de `username`, `email` y `rol.nombre`, duplicados de PK compuesta, FKs, `activo = 1`, desactivación y retiro de asignaciones.
+
+
+**Avance verificado a 12-11-2026 — submódulo `usuario` (responsable Ángel):**
+
+- Se integraron `modelo Usuario`, `IRepositorioUsuario`, `RepositorioUsuarioMariaDB` (PDO), `IServicioUsuario`, `ServicioUsuario`, `ControladorUsuario` y `ExcepcionUsuario`, con nuevas rutas explícitas en el router y ensamblador existente.
+- Pruebas aisladas **28/28** y pruebas HTTP sobre MariaDB local para listado, ficha, POST, PUT, PATCH, cambio de contraseña por ruta separada, duplicados y DELETE lógico.
+- Se comprobó `activo=0` tras el retiro y que el GET administrativo del usuario retirado devuelve `404`. Los errores de duplicado de `username` y `email` devuelven `409`. El GET sin Bearer devuelve `401`.
+- La comprobación de último admin existe en el repositorio con transacción y bloqueo, pero **solo se probó con repositorio falso**; probar en un entorno de BD descartable antes de afirmar su verificación end-to-end. Esta coordinación debe respetarse cuando se implemente `rol_usuario`.
+- Quedan pendientes las comprobaciones `403` con un usuario real `consulta`, `rol` (Miguel), `rol_usuario` (Ángel), frontend y regresión completa.
 
 ### Fase E — Frontend
 
@@ -170,14 +179,14 @@ Las rutas de archivo de arriba son **orientativas**, deben ajustarse a la estruc
 | PHP puro | Extensiones nativas, sin Composer ni framework | Compatible con documentación |
 | Tres capas y ensamblador | Controlador → servicio → repositorio mediante interfaces y carpetas `Servicios_...` / `Repositorios_...` | Documentado en V2; verificar código integrado |
 | SQL y claves | Prepared statements; secrets en entorno | Compatible con metodología de aula |
-| Primer administrador | Roles públicos en `init.sql`; cuenta admin vía script PHP solo CLI y contraseña de entorno; preservar volumen | **Decisión registrada, implementación y verificación pendientes** |
+| Primer administrador | Roles públicos en `init.sql`; cuenta admin vía script PHP solo CLI y contraseña de entorno; preservar volumen | **Alta manual verificada**, instalación nueva/idempotencia/automatización pendientes |
 | JSON y rutas específicas | Login y CRUD administrativo con contratos propios | Compatible |
 | Un front por versión | Pantallas y sesión PHP nuevas en repo frontend | Compatible |
 | No mezclar procesos | Front llama API HTTP y no tiene PDO | Compatible |
 | Borrado lógico | `usuario`/`rol` por `activo`; `rol_usuario` se retira físicamente, según excepción aprobada | Acordado; falta implementar/probar |
 | Idioma y tipos | Español, `declare(strict_types=1);` | Compatible |
 | No anticipar v4 | Sin dashboard, PWA ni despliegue | Compatible |
-| Seguros por diseño | Contraseña hasheada, JWT 60 minutos, control API y matriz que respeta `405` | Alcance aprobado por equipo; desarrollo JWT y pruebas pendientes |
+| Seguros por diseño | Contraseña hasheada, JWT 60 minutos, control API y matriz que respeta `405` | Login y middleware probados localmente; quedan escenarios HTTP, frontend y regresión global |
 | Constitución vigente | Verificar si la del equipo adaptó la del ejemplo | **Pendiente: versión actual del equipo** |
 
 > **Resultado:** el plan es coherente con los documentos del curso, pero NO se declara «aprobado» hasta resolver las cuestiones pendientes y revisar la constitución vigente del equipo.

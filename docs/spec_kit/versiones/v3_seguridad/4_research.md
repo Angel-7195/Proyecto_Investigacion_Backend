@@ -2,7 +2,7 @@
 
 > Cada decisión indica contexto, alternativas, decisión y consecuencia. **Aprobada** significa exigida por las fuentes del proyecto; **propuesta** requiere aprobación del equipo en la compuerta 1. No confundir este documento con investigación externa de bibliotecas.
 
-> **Evidencia al 12-11-2026:** el usuario aportó las pruebas de la inicialización CLI, **15/15** pruebas de login/JWT y **28/28** del middleware; HTTP real de login con `ADMIN` → 200; GET `/api/area_conocimiento` sin token → 401 y con Bearer válido → 200. Es evidencia de ejecución local comunicada, no auditoría independiente de todo el código. Ver registros de fases 1, 2 y 3. Persisten pendientes de administración de usuarios, roles y asignaciones, frontend PHP, regresión y despliegue reproducible.
+> **Evidencia al 12-11-2026:** el usuario aportó las pruebas de la inicialización CLI, **15/15** pruebas de login/JWT y **28/28** del middleware; HTTP real de login con `ADMIN` → 200; GET `/api/area_conocimiento` sin token → 401 y con Bearer válido → 200. Es evidencia de ejecución local comunicada, no auditoría independiente de todo el código. Ver registros de fases 1, 2 y 3. El CRUD `usuario` añadió 28/28 pruebas aisladas, operaciones HTTP reales y comprobaciones SQL locales (ver `REGISTRO_FASE4_USUARIO.md`). Persisten pendientes de `rol`, `rol_usuario`, frontend PHP, regresión y despliegue reproducible.
 
 ## D-v3-01 — JWT firmado en PHP puro
 
@@ -149,6 +149,8 @@
 - **Alternativas:** (a) aceptar cualquier operación administrativa, aun si deja al sistema sin admin; (b) impedir la retirada de la última cuenta/rol admin activo y definir un cambio de contraseña separado de la edición parcial normal.
 - **Recomendación:** (b), con verificación transaccional para evitar carreras. La prohibición de retirar al último admin y el cambio explícito de contraseña fueron aprobados; faltan detalles de validación, implementación y pruebas.
 - **Consecuencias:** evita bloqueo administrativo accidental, pero requiere pruebas de concurrencia e integridad; no declarar esta regla implementada.
+
+**Evidencia parcial agregada el 12-11-2026:** el código del repositorio de `usuario` contiene una transacción y control de último administrador mediante bloqueo (`FOR UPDATE`); la suite aislada de `usuario` pasó 28/28, incluyendo la simulación de este caso. **No se ejecutó un intento real de desactivar al único administrador de la BD principal** para no perder el acceso. La base real mostró un administrador activo, lo cual no prueba la barrera de rechazo. `PATCH /api/usuario/{id}/password` devolvió HTTP 200; la nueva contraseña aleatoria no se conservó para verificar su hash con `password_verify()` directamente. El perfil se modificó por PUT/PATCH sin incluir `password`. La regla de 12–72 bytes proviene de la implementación y debe ratificarse en la documentación de requisitos.
 
 ## D-v3-20 — Dos revisiones independientes del checklist
 

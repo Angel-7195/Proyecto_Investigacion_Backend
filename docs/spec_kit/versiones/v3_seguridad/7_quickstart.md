@@ -1,6 +1,6 @@
 # Quickstart — v3: autenticación y roles
 
-> **Estado al 12-11-2026:** bootstrap manual local y roles en MariaDB comprobados; login JWT con **15/15** pruebas automatizadas y HTTP 200 real; middleware con **28/28** pruebas automatizadas y controles HTTP reales **401 sin token / 200 con Bearer** para `area_conocimiento`. La idempotencia del bootstrap, instalación limpia, auditoría de secretos, usuario real `consulta` por HTTP, CRUD administrativos, frontend y regresión total **siguen pendientes**. Detalles en los registros de fase 1, 2 y 3.
+> **Estado al 12-11-2026:** bootstrap manual local y roles en MariaDB comprobados; login JWT con **15/15** pruebas y HTTP 200; middleware con **28/28** pruebas y HTTP **401 sin token / 200 con Bearer** para `area_conocimiento`; CRUD `usuario` con **28/28** pruebas aisladas y operaciones HTTP principales verificadas contra MariaDB, incluida baja lógica. Continúan pendientes idempotencia/instalación limpia, `consulta` real por HTTP, `rol`, `rol_usuario`, frontend y regresión integral. Detalles en los registros de fases 1–4.
 
 ## 0. Requisitos y configuración real observada
 
@@ -214,6 +214,51 @@ Con un token administrativo obtenido con el mismo flujo del §2, validar los sig
 | Retirar usuario / rol | Borrado lógico y exclusión de SELECT |
 | Dar de baja relación puente | Según C8 aprobada, DELETE físico **solo del vínculo** (pendiente implementación y prueba) |
 
+### 4.1. Evidencia real del CRUD de `usuario` — 12-11-2026
+
+El estudiante integró el código del módulo a su API local (`localhost:8111`) y ejecutó `docker compose up -d --build`; los archivos `index.php` y `ensamblador.php` pasaron `php -l`. La suite `php /app/pruebas/prueba_usuario_aislada.php` devolvió **28/28**, usando repositorio falso. Posteriormente realizó pruebas HTTP autenticadas con la cuenta `ADMIN` y JWT Bearer **sin exponer el token**:
+
+| Escenario | Evidencia recibida |
+|---|---|
+| GET listado admin | 200, un usuario activo inicialmente, sin campo `password` |
+| POST cuenta de prueba | 201; se creó ID 2, `prueba_v3_3ee170b3` |
+| GET por ID y PATCH nombre | 200/200; GET posterior confirmó el cambio |
+| PUT perfil | 200; GET posterior confirmó persistencia |
+| PATCH con `username=ADMIN` para ID 2 | 409; el username original permaneció |
+| POST de correo ya registrado por ADMIN | 409; creación rechazada |
+| PATCH `/api/usuario/2/password` | 200; mensaje `Contraseña actualizada.` |
+| DELETE de cuenta de prueba ID 2 | 200; GET autenticado posterior 404 |
+| Consulta SQL del usuario ID 2 | Fila conservada, `activo=0` |
+| GET `/api/usuario/2` sin JWT | 401 con `WWW-Authenticate: Bearer` |
+| Consulta SQL de hashes | Prefijo `$2y$`, longitud 60 para `ADMIN` e ID 2 |
+| JOIN para contar administradores | Uno activo; solo lectura, **no prueba** que se rechace eliminarlo |
+
+**Consulta SQL reutilizable para comprobar el borrado lógico (solo lectura):**
+
+```sql
+SELECT id, username, activo FROM usuario WHERE id = 2;
+```
+
+**Consulta SQL segura de formato de hashes (no imprime claves ni hashes completos):**
+
+```sql
+SELECT id, username, LEFT(password, 4) AS prefijo_hash,
+       LENGTH(password) AS longitud_hash, activo
+FROM usuario WHERE id IN (1, 2);
+```
+
+**Comprobación GET sin token (solo lectura):**
+
+```powershell
+curl.exe -i --max-time 10 http://localhost:8111/api/usuario/2
+```
+
+**Resultado observado:** `HTTP/1.1 401 Unauthorized`.
+
+Para reproducir los POST, PUT, PATCH y DELETE: iniciar sesión con una cuenta administradora propia (`POST /api/login`), tomar `datos.token`, enviarlo como `Authorization: Bearer <token>` y utilizar **otro usuario temporal**, verificando previamente su identidad y sin tocar `ADMIN`. No guardar tokens, contraseñas, `.env` ni hashes completos en la documentación. El ID `2` pertenece solo a la BD local del estudiante; en otras instalaciones debe utilizarse el ID real devuelto por POST.
+
+**Pruebas que faltan:** HTTP 403 usando un usuario `consulta` real; eliminación del último administrador en BD descartable, prueba directa de `password_verify()` sobre la contraseña nueva (ya no disponible tras ejecutar la prueba), validaciones 422/404 adicionales, cambio de contraseña de cuenta con roles y regresión de V1/V2. Más información en [REGISTRO_FASE4_USUARIO.md](REGISTRO_FASE4_USUARIO.md).
+
 ## 5. Frontend: sesión y logout
 
 1. Entrar desde la pantalla de login con usuario `consulta`.
@@ -262,7 +307,7 @@ git ls-files .env.example
 | Login JWT / credenciales correctas | **Comprobado:** login HTTP `ADMIN` → 200 y 3600 s; suite 15/15 | `REGISTRO_FASE2_LOGIN.md` |
 | HTTP 401 sin token y 200 con Bearer | **Comprobado** en `/api/area_conocimiento` | `REGISTRO_FASE3_MIDDLEWARE.md` |
 | HTTP 403 de `consulta` real | **Pendiente**; solo suite automatizada de autorización | `REGISTRO_FASE3_MIDDLEWARE.md` |
-| CRUD usuario/rol/rol_usuario | Pendiente | — |
+| CRUD administrativo | **`usuario`: pruebas aisladas 28/28 y HTTP principal comprobado**; `rol` y `rol_usuario` pendientes | `REGISTRO_FASE4_USUARIO.md` |
 | Verificación de contraseña con `password_verify()` | **Comprobado en login real y suite de login**; auditoría de almacenamiento/hash de todos los usuarios pendiente | `REGISTRO_FASE2_LOGIN.md` |
 | Frontend + logout | Pendiente | — |
 | Regresión v1/v2 | Pendiente | — |
@@ -303,4 +348,4 @@ try {
 | CRUD de las tres tablas de seguridad | Diseñado; no probado | 201, 404, 409, 422 y cambio del estado real |
 | Logout y API apagada | Diseñado; no probado | Captura sin datos ni token expuesto |
 
-> **Importante:** los puertos y servicios de la sección 0 se cotejaron contra el `docker-compose.yml` compartido. El documento incorpora evidencias locales reportadas de las fases 1, 2 y 3; el ZIP contiene únicamente Markdown y **no ejecuta pruebas nuevas**. El ejemplo `v3_segundo_motor` del profesor no implica usar PostgreSQL en el proyecto de investigación.
+> **Importante:** los puertos y servicios de la sección 0 se cotejaron contra el `docker-compose.yml` compartido. El documento incorpora evidencias locales reportadas de las fases 1, 2, 3 y 4; el ZIP contiene únicamente Markdown y **no ejecuta pruebas nuevas**. El ejemplo `v3_segundo_motor` del profesor no implica usar PostgreSQL en el proyecto de investigación.
