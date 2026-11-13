@@ -91,6 +91,21 @@ Se necesita **Docker Desktop / Docker Compose** y una copia local de ambos repos
 
 4. Verificar los puertos efectivos con el archivo `docker-compose.yml` de la instalación.
 
+5. Generar la clave secreta JWT
+
+   ```powershell
+    $bytes = New-Object byte[] 32
+    [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+    [Convert]::ToBase64String($bytes)
+   ```
+
+6. Copiar el resultado al archivo .env:
+
+    ```powershell
+    JWT_SECRET=CLAVE_GENERADA
+    ```
+
+
 ### Servicios del entorno local utilizado
 
 | Servicio | Acceso habitual |
