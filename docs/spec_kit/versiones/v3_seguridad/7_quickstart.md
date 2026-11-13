@@ -1,5 +1,7 @@
 # Quickstart — v3: autenticación y roles
 
+> **Actualización de frontend — 13-11-2026:** en `http://localhost:8110` se comprobaron manualmente el CRUD principal de usuarios, los vínculos `rol_usuario`, la restricción de `consulta`, el rechazo del login sin roles, la revocación durante una sesión abierta y la restauración del acceso al volver a asignar un rol. Evidencia detallada en [REGISTRO_FASE6_FRONTEND.md](REGISTRO_FASE6_FRONTEND.md). No implica regresión total, aceptación del catálogo `rol`, prueba de API apagada ni cierre SDD.
+
 > **Actualización de evidencia — 12-11-2026, fase 5:** gestión principal de `rol_usuario` comprobada por **15/15** pruebas aisladas y HTTP real: asignación `201`, ficha `200`, duplicado `409`, retiro `200`, ficha posterior `404`. Un usuario `consulta` real obtuvo GET V1 `200`, POST V1 `403` y GET administrativo `403`; tras retirar el rol, **el mismo JWT** pasó a GET `403`. SQL confirmó usuario sin rol aún activo y `ADMIN` con `admin`. La protección del último administrador **queda pendiente de prueba final solo en base descartable**, sin arriesgar el volumen local. Ver [REGISTRO_FASE5_ROL_USUARIO.md](REGISTRO_FASE5_ROL_USUARIO.md).
 
 > **Estado al 12-11-2026:** bootstrap manual local y roles en MariaDB comprobados; login JWT con **15/15** pruebas y HTTP 200; middleware con **28/28** pruebas y HTTP **401 sin token / 200 con Bearer** para `area_conocimiento`; CRUD `usuario` con **28/28** pruebas aisladas y operaciones HTTP principales verificadas contra MariaDB, incluida baja lógica. Continúan pendientes idempotencia/instalación limpia, `rol` (Miguel), frontend y regresión integral; `consulta` real y `rol_usuario` ya tienen pruebas acotadas en fase 5. Detalles en los registros de fases 1–4.
@@ -285,14 +287,78 @@ ORDER BY u.id;
 Observado en este volumen local: `ADMIN` ID 1 activo con `admin`; cuenta `consulta` ID 4 activa con rol `NULL`. No extrapolar estos IDs a otras instalaciones. Si se necesita el usuario 4 en el frontend, reponer su asignación mediante JWT admin. **Prohibido probar el último administrador con DELETE en el volumen habitual**; hacerlo al cierre solo en BD descartable. Más detalles en `REGISTRO_FASE5_ROL_USUARIO.md`.
 
 
-## 5. Frontend: sesión y logout
+## 5. Frontend: sesión, usuarios y `rol_usuario` — pruebas locales de 13-11-2026
 
-1. Entrar desde la pantalla de login con usuario `consulta`.
-2. Confirmar que aparece el menú de lectura y no las acciones de escritura o gestión administrativa.
-3. Intentar una ruta protegida manualmente: la API debe seguir denegando con 403; una ruta web oculta no basta.
-4. Salir desde la interfaz. Comprobar que no quedan datos de autenticación en la sesión y que al volver a una pantalla restringida se pide login.
-5. Entrar con `admin`; comprobar menú y pantallas de las tres entidades administrativas.
-6. Apagar **solo la API**; el frontend sigue respondiendo con aviso y sin datos.
+**Antes de probar:** `docker compose up -d --build` desde el repositorio backend con `FRONT_PATH` apuntando al frontend. Abrir `http://localhost:8110/login`. Usar credenciales de **prueba propias**, nunca incluidas en este documento. La API está en `http://localhost:8111`. Para inspeccionar solo sintaxis del frontend:
+
+```powershell
+docker compose exec -T front-php php -l /app/index.php
+docker compose exec -T front-php php -l /app/cliente_api.php
+docker compose exec -T front-php php -l /app/vistas/compartidas/plantilla.php
+docker compose exec -T front-php php -l /app/rutas/rutas_usuario.php
+docker compose exec -T front-php php -l /app/rutas/rutas_rol_usuario.php
+docker compose exec -T front-php php -l /app/vistas/rol_usuario/gestion.php
+```
+
+**Evidencia:** el estudiante comunicó `No syntax errors detected` para los archivos principales, plantilla y rutas/vista de roles que ejecutó; **no se atribuye resultado previo a todos los comandos nuevos de esta lista**. Estos comandos no alteran la BD.
+
+### 5.1. Comprobar sesiones y permisos
+
+1. Iniciar sesión como `ADMIN` en `/login` y comprobar los enlaces «Usuarios» y «Roles por usuario». El menú de catálogo `rol` independiente se integra cuando esté terminado por Miguel.
+2. Abrir `/usuarios`; crear una cuenta temporal en `/usuarios/nuevo`. **Crear el usuario no asigna un rol automáticamente**.
+3. Iniciar sesión con esa cuenta antes de asignarle un rol: el sistema debe rechazar el acceso sin explicar si la cuenta existe o no.
+4. Desde ADMIN abrir `/roles-usuarios`, seleccionar la cuenta activa y asignar `consulta`. El listado debe mostrar el vínculo; una segunda asignación idéntica debe informar el duplicado (`409` ya verificado por la API en fase 5).
+5. Iniciar una sesión nueva con la cuenta `consulta`; comprobar lectura de «Áreas de conocimiento» sin acciones CRUD. Escribir manualmente `/roles-usuarios` y `/usuarios`: ambos deben quedar restringidos por el frontend y **la API** debe aplicar su propia autorización.
+6. Probar el logout mediante el botón «Cerrar sesión» y verificar en una **prueba adicional pendiente** que el navegador pierde la cookie de sesión anterior y no vuelve a enviar Bearer.
+
+### 5.2. Administración de usuarios
+
+- `/usuarios`: listado activo.
+- `/usuarios/editar?id=N`: formulario de perfil; el frontend envía `PUT` para reemplazo o `PATCH` para los campos realmente modificados. Un PATCH sin cambios debe mostrar aviso.
+- `/usuarios/editar?id=N&seccion=password`: formulario independiente, contraseñas entre 12 y 72 bytes, confirmación coincidente; envía `PATCH /api/usuario/N/password` y **no** reimprime la clave.
+- `/usuarios/editar?id=N&seccion=eliminar`: pantalla de confirmación; el `POST` del frontend llama `DELETE /api/usuario/N` para desactivar lógicamente. En MariaDB el usuario permanece con `activo=0`. **No intentar desactivar al único ADMIN de la base habitual**.
+
+El estudiante observó la creación de `prueba_delete_v3` (ID local 7), edición parcial de su nombre y desactivación; el listado dejó de mostrarla y `activo=0` quedó visible en phpMyAdmin. También se probó el acceso posterior con una contraseña actualizada una vez asignado el rol correspondiente.
+
+### 5.3. Retiro de rol y revocación de una sesión abierta
+
+Esta prueba se realizó con `mariana` (ID local 6), rol `consulta` (ID local 2). Para repetirla **usar una cuenta temporal y los IDs reales de esa base**, no asumir que son los mismos:
+
+1. Iniciar sesión como ADMIN en el navegador normal.
+2. Iniciar sesión con el usuario temporal `consulta` en una ventana de incógnito; cargar «Áreas de conocimiento» y mantener la sesión abierta.
+3. En la ventana ADMIN, abrir `/roles-usuarios`, entrar a la **confirmación GET** y retirar el vínculo con el **POST** del formulario. No realizar retiros por GET.
+4. Volver a la sesión de consulta abierta y actualizar la página protegida: **no debe presentar registros**, aunque todavía muestre el rol anterior en su barra de navegación. La API consulta los roles vigentes y rechaza la solicitud.
+5. Intentar un inicio de sesión nuevo con la cuenta sin roles: debe rechazarse.
+6. Comprobar en phpMyAdmin, **solo durante el retiro**, que la relación ya no existe:
+
+   ```sql
+   SELECT * FROM rol_usuario WHERE usuario_id = 6;
+   ```
+
+7. Reasignar `consulta`, salir de la sesión anterior y volver a iniciar sesión. La cuenta debe recuperar las lecturas permitidas; el estudiante visualizó **218** áreas de conocimiento.
+
+**Observado:** se retiró, reasignó y retiró nuevamente el vínculo; durante el retiro el SELECT no mostró filas. Con la sesión anterior abierta, la interfaz mostró «No tiene permiso para realizar esta acción»; después del nuevo login volvió a mostrar los 218 registros. La evidencia backend previa de fase 5 sí registró un `403` real al reutilizar el mismo JWT; en esta prueba web se fotografió el mensaje, **no el status HTTP exacto**.
+
+### 5.4. Comprobar al último administrador sin ponerlo en riesgo
+
+La interfaz mostró «Último admin protegido» para la única cuenta ADMIN, sin acción de retirada. Confirmar por SQL de solo lectura:
+
+```sql
+SELECT u.id, u.username, u.activo, r.id AS rol_id, r.nombre AS rol
+FROM usuario AS u
+JOIN rol_usuario AS ru ON u.id = ru.usuario_id
+JOIN rol AS r ON r.id = ru.rol_id
+WHERE r.nombre = 'admin' AND r.activo = 1 AND u.activo = 1;
+```
+
+**Observado en esta base:** una fila: `ADMIN`, ID 1, activo 1, rol `admin`. **No probar el DELETE sobre el último admin real.** La validación transaccional y un rechazo HTTP `409` deben verificarse en un entorno de datos descartables. La prueba visual y este SELECT no equivalen a probar esa respuesta HTTP.
+
+### 5.5. Pruebas frontend que aún faltan
+
+- Apagar **únicamente la API**, mantener el frontend levantado y comprobar un aviso sin datos; restaurar la API después.
+- Probar logout/cookie después de la salida y formularios con CSRF ausente/manipulado.
+- Integrar selector dinámico del CRUD `rol` de Miguel; en la instancia probada los roles ID 1/2 se confirmaron en MariaDB, pero no son IDs portables.
+- Repetir matriz completa de rutas y métodos de V1/V2 con cuentas admin/consulta, y completar instalación limpia y regresión.
 
 ## 6. Regresión v1 y v2
 
@@ -335,7 +401,8 @@ git ls-files .env.example
 | HTTP 403 de `consulta` real | **Comprobado parcialmente:** POST V1 y GET `/api/usuario` → 403; mismo JWT tras retirar rol → 403 | `REGISTRO_FASE5_ROL_USUARIO.md` |
 | CRUD administrativo | **`usuario`: 28/28 aisladas y HTTP principal; `rol_usuario`: 15/15 aisladas y HTTP principal; `rol` pendiente** | Registros fases 4 y 5 |
 | Verificación de contraseña con `password_verify()` | **Comprobado en login real y suite de login**; auditoría de almacenamiento/hash de todos los usuarios pendiente | `REGISTRO_FASE2_LOGIN.md` |
-| Frontend + logout | Pendiente | — |
+| Frontend `usuario` y `rol_usuario` | **Comprobado parcialmente:** alta/edición/contraseña/baja lógica, asignación/duplicado/retiro/restauración, `consulta` restringido y revocación durante sesión abierta | `REGISTRO_FASE6_FRONTEND.md` y capturas del estudiante (13-11-2026) |
+| Logout, cookies y formulario ante API apagada | **Implementación de logout inspeccionada; verificación completa pendiente** | Código `front_php/index.php`; falta evidencia dinámica de logout/API caída |
 | Regresión v1/v2 | Pendiente | — |
 | API apagada / frontend activo | Pendiente | — |
 | Ausencia de secretos versionados | Pendiente | — |
@@ -371,7 +438,7 @@ try {
 | Credenciales iniciales faltantes | Diseñado; no probado | Proceso falla cerrado sin valor por defecto |
 | Token alterado/expirado/algoritmo inesperado | **Suite de login 15/15 y middleware 28/28**; faltan solicitudes HTTP específicas | 401 y ningún efecto lateral |
 | Permisos admin/consulta en 16 recursos | **Lógica probada automatizadamente** y un recurso con admin por HTTP; matriz HTTP completa pendiente | Matriz de métodos, 200/204 o 403 según caso |
-| CRUD de las tres tablas de seguridad | Diseñado; no probado | 201, 404, 409, 422 y cambio del estado real |
-| Logout y API apagada | Diseñado; no probado | Captura sin datos ni token expuesto |
+| CRUD de las tres tablas de seguridad | `usuario` y `rol_usuario` cuentan con pruebas acotadas backend/frontend; **`rol` de Miguel pendiente de integración y evidencia** | 201, 404, 409, 422 y cambio del estado real, completando matriz |
+| Logout y API apagada | Logout implementado en código; prueba integral en navegador y API caída pendientes | Evidencia de sesión/cookie limpia y página sin datos cuando API falla |
 
 > **Importante:** los puertos y servicios de la sección 0 se cotejaron contra el `docker-compose.yml` compartido. El documento incorpora evidencias locales reportadas de las fases 1, 2, 3 y 4; el ZIP contiene únicamente Markdown y **no ejecuta pruebas nuevas**. El ejemplo `v3_segundo_motor` del profesor no implica usar PostgreSQL en el proyecto de investigación.

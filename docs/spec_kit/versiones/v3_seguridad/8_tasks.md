@@ -1,5 +1,7 @@
 # Tareas — v3: Seguridad (Investigación)
 
+> **Actualización — 13-11-2026, fase 6 frontend (Ángel):** navegador y MariaDB confirmaron altas/edición/contraseña/baja lógica de usuarios, asignación/duplicado/retiro/restauración de roles, menú `consulta`, denegación de ruta administrativa y revocación de acceso con la sesión ya abierta. `ADMIN` es el único administrador activo según SQL; el frontend lo muestra protegido, **sin ensayar su eliminación real**. Se restauró el rol de Mariana después de las pruebas. Véase [REGISTRO_FASE6_FRONTEND.md](REGISTRO_FASE6_FRONTEND.md). Este registro **no cierra** CRUD `rol`, regresión, SDD ni la V3 global.
+
 > **Actualización de evidencia — 12-11-2026, fase 5:** gestión principal de `rol_usuario` comprobada por **15/15** pruebas aisladas y HTTP real: asignación `201`, ficha `200`, duplicado `409`, retiro `200`, ficha posterior `404`. Un usuario `consulta` real obtuvo GET V1 `200`, POST V1 `403` y GET administrativo `403`; tras retirar el rol, **el mismo JWT** pasó a GET `403`. SQL confirmó usuario sin rol aún activo y `ADMIN` con `admin`. La protección del último administrador **queda pendiente de prueba final solo en base descartable**, sin arriesgar el volumen local. Ver [REGISTRO_FASE5_ROL_USUARIO.md](REGISTRO_FASE5_ROL_USUARIO.md).
 
 > Orden sugerido: especificar → comprobar el esquema → implementar por capas → probar API y frontend → regresión → tag. Asignar responsables y commits del equipo; las casillas de **aceptación final** permanecen abiertas hasta revisión del equipo. Algunas tareas con evidencia ejecutada se marcaron como completadas de forma **acotada**; ello no equivale a cerrar una fase ni aprobar compuertas SDD. Ver registros de fases 1, 2, 3, 4 y 5.
@@ -133,19 +135,23 @@ Fuente: `REGISTRO_FASE5_ROL_USUARIO.md`. Las marcas corresponden solo a hechos r
 
 ## Fase 6 — Frontend PHP
 
-- [ ] Formulario de login y mensajes comprensibles en español.
-- [ ] `session_start()`, regeneración de ID tras login y conservación del JWT en sesión.
-- [ ] El cliente HTTP aprobado incorpora Bearer; resolver C11-V2 (streams actuales frente a cURL metodológico) antes de marcar esta tarea.
-- [ ] Menú por roles, sin confiar en él como único control de acceso.
-- [ ] Pantallas de lista, ficha, creación, edición, retiro de usuarios y roles.
-- [ ] Pantalla de asignación/retiro de roles de usuarios conforme a contrato.
-- [ ] Logout y retorno a login; no continuar enviando token.
-- [ ] Gestión de 401, 403, API caída y formularios sin exponer claves.
+- [x] Formulario de login y mensajes comprensibles en español; inicio real con `ADMIN` y `consulta` comprobado en navegador.
+- [x] `session_start()`, regeneración de ID tras login y conservación del JWT en sesión: **implementación revisada en `front_php/index.php`**; auditoría independiente de cookies pendiente.
+- [x] Cliente HTTP incorpora Bearer desde la sesión: **código revisado**. **Pendiente:** resolver C11-V2, porque todavía usa streams HTTP y no cURL.
+- [x] Menú por roles y acceso protegido también en la API: `consulta` vio solo lectura y recibió denegación al entrar directamente en gestión de roles.
+- [x] Pantallas administrativas de `usuario` para alta, listado, edición PUT/PATCH, contraseña y baja lógica; vistas y persistencia comprobadas parcialmente desde el navegador y SQL.
+- [ ] Pantallas de CRUD del **catálogo `rol`**: asignadas a Miguel; no atribuir su implementación a la gestión de `rol_usuario`.
+- [x] Pantalla de consulta, asignación y retirada de `rol_usuario` (incluida confirmación POST + CSRF y duplicado); restauración de vínculo probada.
+- [x] Logout por POST con limpieza de sesión y cookie **revisado en código**; pendiente prueba independiente de cookie/token posterior.
+- [ ] Completar la matriz de 401, 403 y API caída en **todos** los formularios; la denegación de `consulta` y del usuario sin rol sí fue comprobada.
 - [ ] Confirmar frontend sin PDO, sin claves BD y sin importar clases backend.
 
-**Verificación:** uso desde navegador con perfiles consulta/admin y API apagada.
+**Verificación parcial realizada:** pruebas desde navegador con `ADMIN` y Mariana (`consulta`), más SQL de solo lectura. **Pendientes:** API apagada, auditoría de separación, integración de `rol` y matriz completa. Evidencia: `REGISTRO_FASE6_FRONTEND.md`.
 
 ## Fase 7 — Pruebas y regresión
+
+- [x] Prueba de revocación inmediata en navegador: Mariana permaneció con sesión abierta, ADMIN retiró su único rol y la página protegida dejó de mostrar registros; después de restaurar `consulta` e iniciar una sesión nueva, cargaron **218** áreas de conocimiento.
+- [x] SQL de lectura: solo `ADMIN` (ID 1) figuraba con rol `admin` activo y el vínculo de Mariana (ID 6) desapareció durante el retiro; posteriormente fue restaurado. **No** se ejecutó DELETE del administrador real.
 
 - [ ] Regresión diferenciada: los cinco recursos V2 con campos editables mantienen PUT/PATCH; las cinco asociaciones simples (`grupo_linea`, `semillero_linea`, `ac_linea`, `ods_linea`, `aa_linea`) devuelven **405** para PUT/PATCH de admin; el rol `consulta` devuelve **403** al intentar cualquier escritura.
 - [ ] Comprobar la divergencia documentada: PATCH `{}` en controladores V2 revisados → **422**; casos V1 según sus contratos → **400** donde corresponde. No homogeneizar sin decisión documentada.

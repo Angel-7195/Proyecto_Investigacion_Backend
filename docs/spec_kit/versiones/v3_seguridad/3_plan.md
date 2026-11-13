@@ -1,10 +1,12 @@
 # Plan técnico — v3: Seguridad (Investigación)
 
+> **Ejecución parcial del frontend registrada el 13-11-2026:** login, sesión, menú diferenciado, CRUD principal de `usuario` y asignación/retiro de `rol_usuario` observados; la retirada del único rol de Mariana durante una sesión abierta impidió nuevas consultas hasta restaurarlo y volver a iniciar sesión. Fuente: [REGISTRO_FASE6_FRONTEND.md](REGISTRO_FASE6_FRONTEND.md). Quedan integración del catálogo `rol` de Miguel, verificación de API apagada y regresión completa.
+
 > **Actualización de evidencia — 12-11-2026, fase 5:** gestión principal de `rol_usuario` comprobada por **15/15** pruebas aisladas y HTTP real: asignación `201`, ficha `200`, duplicado `409`, retiro `200`, ficha posterior `404`. Un usuario `consulta` real obtuvo GET V1 `200`, POST V1 `403` y GET administrativo `403`; tras retirar el rol, **el mismo JWT** pasó a GET `403`. SQL confirmó usuario sin rol aún activo y `ADMIN` con `admin`. La protección del último administrador **queda pendiente de prueba final solo en base descartable**, sin arriesgar el volumen local. Ver [REGISTRO_FASE5_ROL_USUARIO.md](REGISTRO_FASE5_ROL_USUARIO.md).
 
 > **Estado:** propuesta revisada con el Spec Kit V2 recibido (29-10-2026). El DDL del script entregado se cotejó y quedó resuelto en C1; resolver C3–C11 y cotejar el código integrado y el estado de la BD en ejecución. C2 está documentado, aún requiere prueba de regresión. No modificar V1/V2 cerradas a ciegas.
 
-> **Evidencia de ejecución al 12-11-2026:** alta CLI del administrador ya efectuada; `POST /api/login` con JWT HS256 de **60 minutos** funcional (15/15 pruebas automatizadas y HTTP 200 real). Middleware integrado antes de los controladores: 28/28 pruebas automatizadas; GET real sin Bearer → 401 y con Bearer de `ADMIN` → 200 sobre `area_conocimiento`. Véanse `REGISTRO_FASE1_ADMIN.md`, `REGISTRO_FASE2_LOGIN.md` y `REGISTRO_FASE3_MIDDLEWARE.md`. Faltan CRUD administrativos, sesión frontend, matriz HTTP completa admin/consulta, regresión y cierre SDD.
+> **Evidencia de ejecución al 12-11-2026 (hito histórico):** alta CLI del administrador; `POST /api/login` con JWT HS256 de **60 minutos** funcional (15/15 pruebas automatizadas y HTTP 200 real); middleware previo a controladores (28/28 pruebas automatizadas); GET sin Bearer → 401 y con Bearer `ADMIN` → 200 en `area_conocimiento`. Véanse los registros de fases 1–3. **Actualización 13-11:** `usuario`, `rol_usuario` y sus pantallas principales también cuentan con pruebas acotadas; falta CRUD `rol`, matriz HTTP completa admin/consulta, regresión y cierre SDD.
 
 
 ## 1. Arquitectura y recorrido
@@ -68,19 +70,18 @@ Proyecto_Investigacion_Backend/
 
 Proyecto_Investigacion_Frontend/
   front_php/
-    index.php                       # rutas web /login y /salir (a confirmar)
+    index.php                       # rutas web /login y POST /logout; incluye rutas v1/v2 y V3
     cliente_api.php                 # HTTP actual usa streams; adaptar/migrar según C11-V2
     rutas/
-      rutas_autenticacion.php       # propuesto, cotejar nomenclatura
-      rutas_usuario.php            # propuesto, patrón rutas_<entidad>.php
-      rutas_rol.php
-      rutas_rol_usuario.php
+      rutas_usuario.php            # implementado: lista, registro, perfil, contraseña, baja lógica
+      rutas_rol.php                # catálogo: por integrar con trabajo de Miguel
+      rutas_rol_usuario.php        # implementado: listar, asignar, confirmar y retirar vínculos
     vistas/
       compartidas/plantilla.php    # ubicación real documentada en V2
-      autenticacion/...
-      usuario/...
-      rol/...
-      rol_usuario/...
+      autenticacion/login.php
+      usuario/{lista.php,formulario.php}
+      rol/...                      # pendiente de integración
+      rol_usuario/gestion.php
 ```
 
 **Estructura efectivamente utilizada en las fases 2–3 (confirmada por archivos recibidos y salida de pruebas):** `controladores/ControladorLogin.php`, `servicios/Servicios_Autenticacion/ServicioAutenticacion.php`, `servicios/Servicios_Autenticacion/JwtHS256.php`, `repositorios/Repositorios_Autenticacion/{IRepositorioAutenticacion.php,RepositorioAutenticacionMariaDB.php}`, `middleware/MiddlewareAutorizacion.php`, `servicios/Servicios_Autorizacion/ServicioAutorizacion.php`, `excepciones/ExcepcionAcceso.php`, `pruebas/prueba_login_jwt.php` y `pruebas/prueba_middleware_autorizacion.php`. Las rutas anteriores `seguridad/Jwt.php`, `seguridad/Autorizador.php`, `ControladorAutenticacion.php` son ejemplos iniciales, **no nombres reales que deban duplicarse**.
@@ -152,6 +153,8 @@ Las rutas de archivo de arriba son **orientativas**, deben ajustarse a la estruc
 - Ya se comprobó **HTTP 403 con un usuario `consulta` real** y la gestión principal de `rol_usuario` (Ángel). Siguen pendientes `rol` (Miguel), pruebas del último admin, frontend y regresión completa.
 
 ### Fase E — Frontend
+
+**Estado al 13-11-2026:** login y sesión, navegación con permisos, administración de `usuario` y `rol_usuario` están implementados y tienen pruebas manuales representativas. El código del cliente aún usa streams HTTP, la auditoría de cookie/logout y la API caída no se han completado, y el catálogo `rol` se integra después con Miguel. Las tareas siguientes describen la estrategia original; los resultados están en el registro de fase 6.
 
 1. Añadir login con sesión PHP; regenerar ID de sesión al autenticar.
 2. Adaptar `front_php/cliente_api.php` para enviar `Authorization: Bearer`, sin declarar que ya usa cURL: V2 usa streams HTTP. Resolver C11-V2 (migración a cURL o excepción académica aprobada), y mantener la comunicación solo por HTTP.

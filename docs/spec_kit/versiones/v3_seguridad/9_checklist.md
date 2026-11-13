@@ -1,5 +1,7 @@
 # Checklist de requisitos y cierre — v3: Investigación
 
+> **Evidencia nueva — 13-11-2026:** pruebas manuales de frontend de `usuario` y `rol_usuario`, control de menú, restricción directa, revocación de sesión con rol retirado, SQL del único administrador activo y recuperación de acceso al restaurar `consulta`. Véase [REGISTRO_FASE6_FRONTEND.md](REGISTRO_FASE6_FRONTEND.md). **No se firman compuertas, ni se aprueba la regresión completa, ni se considera terminada la V3 por este registro.**
+
 > **Actualización de evidencia — 12-11-2026, fase 5:** gestión principal de `rol_usuario` comprobada por **15/15** pruebas aisladas y HTTP real: asignación `201`, ficha `200`, duplicado `409`, retiro `200`, ficha posterior `404`. Un usuario `consulta` real obtuvo GET V1 `200`, POST V1 `403` y GET administrativo `403`; tras retirar el rol, **el mismo JWT** pasó a GET `403`. SQL confirmó usuario sin rol aún activo y `ADMIN` con `admin`. La protección del último administrador **queda pendiente de prueba final solo en base descartable**, sin arriesgar el volumen local. Ver [REGISTRO_FASE5_ROL_USUARIO.md](REGISTRO_FASE5_ROL_USUARIO.md).
 
 > **No es autoaprobación de IA.** Lo revisa el equipo en tres momentos: (1) antes de programar, para verificar calidad de la spec; (2) durante pruebas; (3) antes del tag v3. Las casillas **de aprobación humana** no están marcadas; los resultados de pruebas ya ejecutadas se registran por separado.
@@ -111,23 +113,37 @@ Las secciones B–G **no cuentan** para aprobar anticipadamente la calidad de la
 - [x] SQL de lectura: `ADMIN` activo con rol `admin`, usuario 4 activo sin rol.
 - [ ] Proteger último administrador en BD descartable; no tocar la cuenta real `ADMIN`.
 - [ ] Verificar por HTTP FK inexistentes/inactivas, PUT/PATCH 405, segundo DELETE y datos inválidos.
-- [ ] Probar matriz completa, módulo `rol`, frontend y regresión V1/V2.
+- [ ] Probar matriz completa, módulo `rol` de Miguel y regresión V1/V2. El **flujo principal del frontend** de `usuario` y `rol_usuario` sí cuenta con evidencia específica de 13-11-2026, pero no cubre toda esta sección.
 
 **Fuente:** `REGISTRO_FASE5_ROL_USUARIO.md`; no se marcan por IA las compuertas de aprobación humanas.
 
 
 ## E. Frontend y separación
 
-- [ ] Login PHP consume la API por HTTP, nunca se conecta a MariaDB.
-- [ ] Tras login, el token queda en `$_SESSION` y se añade como Bearer en el cliente HTTP aprobado; consta decisión C11-V2 sobre cURL.
-- [ ] El identificador de sesión se regenera al iniciar sesión correctamente.
-- [ ] Logout limpia la sesión y la interfaz ya no envía el token.
-- [ ] El menú de `consulta` no ofrece escrituras ni acceso a gestión de usuarios/roles.
-- [ ] El menú de admin ofrece acceso a los CRUD de la v3.
-- [ ] Los errores 401 y 403 tienen mensajes amigables sin códigos técnicos como instrucciones normales.
-- [ ] Ningún formulario vuelve a imprimir contraseñas después de error.
+- [x] Login PHP llama a la API por HTTP, según código inspeccionado y autenticación real de `ADMIN`/`consulta`; la **revisión integral** de conexiones del frontend permanece pendiente.
+- [x] El JWT queda en `$_SESSION` y se incluye como Bearer: **código inspeccionado**; C11-V2 sobre streams/cURL **sigue sin cerrarse**.
+- [x] Se llama a `session_regenerate_id(true)` después del login correcto: **revisado en código**, falta inspección de cookie en navegador.
+- [ ] Logout limpia sesión y cookie en código; **pendiente verificar en navegador** que ninguna llamada posterior envía el token antiguo.
+- [x] El menú `consulta` no presenta escritura ni acceso a gestión; visita directa a `/roles-usuarios` fue rechazada.
+- [ ] El menú admin muestra usuarios y roles por usuario, **pero falta el CRUD del catálogo `rol` de Miguel** para satisfacer los tres recursos de V3.
+- [x] Error de permiso visible en español tras revocar un rol y mensaje genérico de login sin rol: **casos concretos probados**, no toda la matriz 401/403.
+- [x] Los formularios de contraseña revisados no reimprimen los valores tras un error: **revisión de código**, no auditoría de todas las vistas.
 - [ ] No hay PDO, credenciales MariaDB ni `require` de código backend en frontend.
 - [ ] Con la API caída, frontend continúa respondiendo sin datos y con aviso.
+
+### E.1. Pruebas manuales de frontend registradas el 13-11-2026
+
+- [x] Alta de usuarios (`mario`, `mariana`, `prueba_delete_v3`) y necesidad de asignar un rol antes del login.
+- [x] Edición parcial de perfil y cambio de contraseña en cuenta de prueba, sin guardar la clave en evidencias.
+- [x] Desactivación de `prueba_delete_v3`: no aparece en listado activo y MariaDB conserva la fila con `activo=0`.
+- [x] Alta de `rol_usuario` de Mariana con `consulta`, rechazo visual de duplicado y posterior retirada/reasignación.
+- [x] SQL `rol_usuario` sin filas para Mariana justo después del retiro; cuenta sin rol no puede iniciar una sesión nueva.
+- [x] Sesión abierta de Mariana pierde acceso tras retirar `consulta`; recuperación después de reasignación y nuevo login con **218** registros visibles.
+- [x] Protección visual del último administrador y SQL que muestra a `ADMIN` como único admin activo.
+- [ ] Rechazo HTTP real a retiro del último admin en **BD descartable**; no poner en riesgo `ADMIN` del volumen habitual.
+- [ ] API caída, validación adversarial de CSRF, integración dinámica de catálogo `rol` y regresión general V1/V2.
+
+**Evidencia y límites:** [REGISTRO_FASE6_FRONTEND.md](REGISTRO_FASE6_FRONTEND.md). Las casillas E.1 certifican solo pruebas acotadas o inspección de código, **no** la aceptación de toda la sección E.
 
 ## F. Regresión v1-v2
 

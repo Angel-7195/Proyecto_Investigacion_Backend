@@ -315,15 +315,25 @@ Los errores nunca deben incluir el contenido del Bearer, hash de contraseña, se
 
 El texto de estos ejemplos es **propuesta nueva de v3**, no un contrato ejecutado; revisarlo con el equipo para conservar mensajes consistentes en todos los controladores.
 
-### 9.4 Pantallas PHP de esta versión (rutas web sujetas a C10)
+### 9.4 Pantallas PHP de esta versión (rutas web verificadas en código de Ángel, 13-11-2026)
 
-| Pantalla del frontend | Acceso | Llamadas HTTP a la API |
+Estas son rutas **del frontend PHP**, no endpoints añadidos a la API. Los formularios web envían `POST` y el cliente `front_php/cliente_api.php` realiza la petición API con el verbo correspondiente y JWT Bearer.
+
+| Ruta o pantalla web | Acceso | Operación de API / efecto |
 |---|---|---|
-| Formulario de inicio de sesión | Público | `POST /api/login` |
-| Menú de investigación | Consulta y admin | GET de los recursos permitidos con Bearer |
-| Administración de usuarios | Solo admin | `/api/usuario` según operación |
-| Administración de roles | Solo admin | `/api/rol` según operación |
-| Asignaciones de rol | Solo admin | `/api/rol_usuario` según operación C8 |
-| Acción de salir | Sesión activa | Cierra sesión **del frontend**, no necesita `POST /api/logout` salvo decisión C7 |
+| GET/POST `/login` | Público | Formulario y `POST /api/login`; token guardado en sesión PHP. |
+| POST `/logout` | Sesión activa | Limpia JWT, sesión y cookie; **sin endpoint API de logout ni revocación central**. |
+| GET `/` y rutas de los 16 recursos previos | Consulta y admin | GET permitido por API según rol vigente. |
+| GET `/usuarios` | Admin | `GET /api/usuario`. |
+| GET `/usuarios/nuevo`, POST `/usuarios/crear` | Admin | Formulario y `POST /api/usuario`. |
+| GET `/usuarios/editar?id=N` | Admin | `GET /api/usuario/N`; edición de perfil. |
+| POST `/usuarios/actualizar` con `accion=completo` o `parcial` | Admin | `PUT` o `PATCH /api/usuario/N` respectivamente. |
+| GET `/usuarios/editar?id=N&seccion=password`, POST `/usuarios/actualizar` con `accion=password` | Admin | Formulario separado y `PATCH /api/usuario/N/password`. |
+| GET `/usuarios/editar?id=N&seccion=eliminar`, POST `/usuarios/actualizar` con `accion=eliminar` | Admin | Confirmación y `DELETE /api/usuario/N` (lógico). |
+| GET `/roles-usuarios` | Admin | `GET /api/rol_usuario` y lista de usuarios activos. |
+| POST `/roles-usuarios/asignar` | Admin | `POST /api/rol_usuario`. |
+| GET `/roles-usuarios/confirmar-retiro?usuario_id=N&rol_id=R` | Admin | Consulta `GET /api/rol_usuario/N/R` y confirmación, **sin DELETE**. |
+| POST `/roles-usuarios/retirar` | Admin | `DELETE /api/rol_usuario/N/R` (solo vínculo). |
+| CRUD del catálogo `rol` | Admin | **A integrar** por Miguel; no confundirlo con `/roles-usuarios`. |
 
-Las rutas **web** (`/login`, `/salir` u otras) deben definirse tras leer `front_php/index.php` actual; no se afirma que ya existan. La pantalla también debe distinguir lista vacía (`204`) de API caída y preservar formularios sin recuperar contraseñas.
+En los formularios revisados se implementaron tokens CSRF, confirmación expresa para asignar admin, validación de entradas y mensajes 401/403. El selector `rol_usuario` usa **temporalmente** ID 1 `admin` e ID 2 `consulta`, confirmados solamente en la base local; debe consultar el catálogo de roles cuando se integre el módulo de Miguel. La validación de permisos en la API continúa siendo obligatoria aun si la navegación web oculta operaciones. Las pruebas observadas, sus límites y los casos API caída pendientes están en [REGISTRO_FASE6_FRONTEND.md](REGISTRO_FASE6_FRONTEND.md).
