@@ -33,6 +33,46 @@ $ruta = rtrim(
     '/'
 ) ?: '/';
 
+// ======================================================================
+// SEGURIDAD TRANSVERSAL — V3: ANTES DE PARSEAR EL BODY Y DEL CRUD
+// Solo GET / (diagnóstico) y /api/login (resuelto por su propia ruta) son públicos.
+// ======================================================================
+if (($ruta === '/api' || str_starts_with($ruta, '/api/')) && $ruta !== '/api/login') {
+    try {
+        require_once __DIR__ . '/servicios/ensamblador.php';
+        $middleware = crearMiddlewareAutorizacion();
+
+        $middleware->autorizar(
+            $metodo,
+            $ruta,
+            $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? null
+        );
+    } catch (ExcepcionAcceso $excepcion) {
+        $estado = $excepcion->estadoHttp();
+        http_response_code($estado);
+        header('Cache-Control: no-store');
+        if ($estado === 401) {
+            header('WWW-Authenticate: Bearer realm="investigacion"');
+        }
+        echo json_encode([
+            'estado' => $estado,
+            'mensaje' => $estado === 401 ? 'Autenticación requerida.' : 'Acceso denegado.',
+            'detalle' => $excepcion->getMessage(),
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        return;
+    } catch (Throwable $excepcion) {
+        // Errores de BD/configuración NO se deben convertir en 401/403.
+        error_log('Error interno al autorizar una solicitud.');
+        http_response_code(500);
+        header('Cache-Control: no-store');
+        echo json_encode([
+            'estado' => 500,
+            'mensaje' => 'No fue posible verificar el acceso.',
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        return;
+    }
+}
+
 $contenido = file_get_contents('php://input');
 $cuerpo = [];
 
@@ -90,6 +130,118 @@ if ($ruta === '/' && $metodo === 'GET') {
         JSON_UNESCAPED_UNICODE
     );
 
+    return;
+}
+
+// ======================================================================
+// LOGIN JWT - V3 (RUTA PÚBLICA)
+// ======================================================================
+
+if ($ruta === '/api/login') {
+    if ($metodo !== 'POST') {
+        responderNoPermitido();
+        return;
+    }
+
+    try {
+        require_once __DIR__ . '/servicios/ensamblador.php';
+        $controladorLogin = crearControladorLogin();
+        $controladorLogin->iniciarSesion($cuerpo);
+    } catch (Throwable $excepcion) {
+        // Por ejemplo, si falta JWT_SECRET: no exponer configuración interna.
+        http_response_code(500);
+        header('Cache-Control: no-store');
+        echo json_encode([
+            'estado' => 500,
+            'mensaje' => 'No fue posible procesar el inicio de sesión.',
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+
+    return;
+}
+
+// ======================================================================
+// USUARIOS — V3 (SOLO ADMIN; middleware ejecutado anteriormente)
+// ======================================================================
+
+if ($ruta === '/api/usuario') {
+    if ($metodo !== 'GET' && $metodo !== 'POST') {
+        responderNoPermitido();
+        return;
+    }
+    require_once __DIR__ . '/servicios/ensamblador.php';
+    $controladorUsuario = crearControladorUsuario();
+    if ($metodo === 'GET') {
+        $controladorUsuario->listar();
+    } else {
+        $controladorUsuario->crear($cuerpo);
+    }
+    return;
+}
+
+// La contraseña tiene una ruta distinta del perfil.
+if (preg_match('#^/api/usuario/([1-9]\d*)/password$#', $ruta, $usuarioCoincide)) {
+    if ($metodo !== 'PATCH') {
+        responderNoPermitido();
+        return;
+    }
+    require_once __DIR__ . '/servicios/ensamblador.php';
+    $controladorUsuario = crearControladorUsuario();
+    $controladorUsuario->cambiarContrasena((int) $usuarioCoincide[1], $cuerpo);
+    return;
+}
+
+if (preg_match('#^/api/usuario/([1-9]\d*)$#', $ruta, $usuarioCoincide)) {
+    require_once __DIR__ . '/servicios/ensamblador.php';
+    $controladorUsuario = crearControladorUsuario();
+    $usuarioId = (int) $usuarioCoincide[1];
+    if ($metodo === 'GET') {
+        $controladorUsuario->obtener($usuarioId);
+    } elseif ($metodo === 'PUT') {
+        $controladorUsuario->reemplazar($usuarioId, $cuerpo);
+    } elseif ($metodo === 'PATCH') {
+        $controladorUsuario->actualizar($usuarioId, $cuerpo);
+    } elseif ($metodo === 'DELETE') {
+        $controladorUsuario->retirar($usuarioId);
+    } else {
+        responderNoPermitido();
+    }
+    return;
+}
+
+
+// ======================================================================
+// ROL_USUARIO — V3; solo admin mediante middleware
+// ======================================================================
+if ($ruta === '/api/rol_usuario') {
+    if ($metodo !== 'GET' && $metodo !== 'POST') {
+        responderNoPermitido();
+        return;
+    }
+    require_once __DIR__ . '/servicios/ensamblador.php';
+    $controladorRolUsuario = crearControladorRolUsuario();
+    if ($metodo === 'GET') {
+        $controladorRolUsuario->listar();
+    } else {
+        $controladorRolUsuario->crear($cuerpo);
+    }
+    return;
+}
+
+if (preg_match('#^/api/rol_usuario/([1-9]\d*)/([1-9]\d*)$#', $ruta, $coincidenciasRolUsuario)) {
+    if (!in_array($metodo, ['GET', 'DELETE'], true)) {
+        responderNoPermitido(); // Incluye PUT/PATCH 405
+        return;
+    }
+    require_once __DIR__ . '/servicios/ensamblador.php';
+    $controladorRolUsuario = crearControladorRolUsuario();
+    $usuarioId = (int) $coincidenciasRolUsuario[1];
+    $rolId = (int) $coincidenciasRolUsuario[2];
+    if ($metodo === 'GET') {
+        $controladorRolUsuario->obtener($usuarioId, $rolId);
+    } else {
+        $controladorRolUsuario->retirar($usuarioId, $rolId);
+    }
     return;
 }
 

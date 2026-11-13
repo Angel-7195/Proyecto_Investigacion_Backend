@@ -161,6 +161,40 @@ require_once __DIR__ . '/Servicios_SemilleroLinea/IServicioSemilleroLinea.php';
 require_once __DIR__ . '/Servicios_SemilleroLinea/ServicioSemilleroLinea.php';
 require_once __DIR__ . '/../controladores/ControladorSemilleroLinea.php';
 
+// ================================================================
+// INICIALIZACION DE SEGURIDAD - V3
+// ================================================================
+
+require_once __DIR__ . '/../repositorios/Repositorios_InicializacionSeguridad/IRepositorioInicializacionSeguridad.php';
+require_once __DIR__ . '/../repositorios/Repositorios_InicializacionSeguridad/RepositorioInicializacionSeguridadMariaDB.php';
+require_once __DIR__ . '/Servicios_InicializacionSeguridad/ServicioInicializacionSeguridad.php';
+
+require_once __DIR__ . '/../repositorios/Repositorios_Autenticacion/IRepositorioAutenticacion.php';
+require_once __DIR__ . '/../repositorios/Repositorios_Autenticacion/RepositorioAutenticacionMariaDB.php';
+require_once __DIR__ . '/Servicios_Autenticacion/JwtHS256.php';
+require_once __DIR__ . '/Servicios_Autenticacion/ServicioAutenticacion.php';
+require_once __DIR__ . '/../controladores/ControladorLogin.php';
+
+require_once __DIR__ . '/../excepciones/ExcepcionAcceso.php';
+require_once __DIR__ . '/Servicios_Autorizacion/ServicioAutorizacion.php';
+require_once __DIR__ . '/../middleware/MiddlewareAutorizacion.php';
+
+require_once __DIR__ . '/../modelos/Usuario.php';
+require_once __DIR__ . '/../excepciones/ExcepcionUsuario.php';
+require_once __DIR__ . '/../repositorios/Repositorios_Usuario/IRepositorioUsuario.php';
+require_once __DIR__ . '/../repositorios/Repositorios_Usuario/RepositorioUsuarioMariaDB.php';
+require_once __DIR__ . '/Servicios_Usuario/IServicioUsuario.php';
+require_once __DIR__ . '/Servicios_Usuario/ServicioUsuario.php';
+require_once __DIR__ . '/../controladores/ControladorUsuario.php';
+
+require_once __DIR__ . '/../modelos/RolUsuario.php';
+require_once __DIR__ . '/../excepciones/ExcepcionRolUsuario.php';
+require_once __DIR__ . '/../repositorios/Repositorios_RolUsuario/IRepositorioRolUsuario.php';
+require_once __DIR__ . '/../repositorios/Repositorios_RolUsuario/RepositorioRolUsuarioMariaDB.php';
+require_once __DIR__ . '/Servicios_RolUsuario/IServicioRolUsuario.php';
+require_once __DIR__ . '/Servicios_RolUsuario/ServicioRolUsuario.php';
+require_once __DIR__ . '/../controladores/ControladorRolUsuario.php';
+
 /**
  * Construye la conexión PDO utilizando las variables de entorno.
  */
@@ -398,4 +432,56 @@ function ensamblarControladores(): array
         'grupo_linea' => $controladorGrupoLinea,
         'semillero_linea' => $controladorSemilleroLinea,
     ];
+}
+
+/** Punto de ensamblaje del comando de inicialización V3. */
+function crearServicioInicializacionSeguridad(): ServicioInicializacionSeguridad
+{
+    $repositorio = new RepositorioInicializacionSeguridadMariaDB(crearConexion());
+    return new ServicioInicializacionSeguridad($repositorio);
+}
+
+/** Construye el controlador para POST /api/login. */
+function crearControladorLogin(): ControladorLogin
+{
+    $secreto = getenv('JWT_SECRET');
+    if (!is_string($secreto) || strlen($secreto) < 32) {
+        throw new RuntimeException('JWT_SECRET no está configurado correctamente.');
+    }
+
+    $repositorio = new RepositorioAutenticacionMariaDB(crearConexion());
+    $jwt = new JwtHS256($secreto);
+    $servicio = new ServicioAutenticacion($repositorio, $jwt);
+
+    return new ControladorLogin($servicio);
+}
+
+/** Construye el middleware de V3 usando los componentes existentes del login. */
+function crearMiddlewareAutorizacion(): MiddlewareAutorizacion
+{
+    $secreto = getenv('JWT_SECRET');
+    if (!is_string($secreto) || strlen($secreto) < 32) {
+        throw new RuntimeException('JWT_SECRET no está configurado correctamente.');
+    }
+
+    $repositorio = new RepositorioAutenticacionMariaDB(crearConexion());
+    $jwt = new JwtHS256($secreto);
+    $servicio = new ServicioAutorizacion($repositorio, $jwt);
+
+    return new MiddlewareAutorizacion($servicio);
+}
+
+/** Ensambla el CRUD de usuario con la conexión existente. */
+function crearControladorUsuario(): ControladorUsuario
+{
+    $repositorio = new RepositorioUsuarioMariaDB(crearConexion());
+    $servicio = new ServicioUsuario($repositorio);
+    return new ControladorUsuario($servicio);
+}
+
+function crearControladorRolUsuario(): ControladorRolUsuario
+{
+    $repositorio = new RepositorioRolUsuarioMariaDB(crearConexion());
+    $servicio = new ServicioRolUsuario($repositorio);
+    return new ControladorRolUsuario($servicio);
 }

@@ -1,197 +1,149 @@
-# Proyecto de Investigación — Versión 2
+# Proyecto de Investigación — Backend PHP
+
+**Versión actual: V3 — Autenticación, autorización y administración de usuarios (en desarrollo)**
+
+## Repositorios:
+
+- Backend: https://github.com/Angel-7195/Proyecto_Investigacion_Backend.git
+- Frontend: https://github.com/Angel-7195/Proyecto_Investigacion_Frontend.git
+
+Proyecto académico del módulo de Investigación, desarrollado con **PHP puro 8.3**, **MariaDB**, **PDO** y **Docker**. La API REST se organiza por capas y es consumida mediante HTTP por una aplicación frontend PHP alojada en un repositorio independiente.
 
 ## Integrantes
 
-- Ángel David Gutiérrez Ladino
-- Miguel Ángel Lotero Álvarez
+- **Ángel David Gutiérrez Ladino:** autenticación JWT, autorización, CRUD de `usuario` y administración de `rol_usuario`, con integración de sus pantallas en el frontend.
+- **Miguel Ángel Lotero Álvarez:** desarrollo del módulo independiente de administración de `rol` y demás responsabilidades acordadas por el equipo.
 
-Proyecto académico desarrollado en **PHP puro**, **MariaDB** y **Docker** para el módulo de Investigación.
+> **Estado documentado al 13 de noviembre de 2026.** Los módulos de Ángel cuentan con pruebas automatizadas, HTTP y verificaciones manuales desde el frontend. **La versión 3 todavía no se considera cerrada**: faltan integración y verificación del CRUD `rol`, regresión integral de V1/V2, algunas pruebas de seguridad e instalación, revisión conjunta y el proceso de PR/tag.
 
-La **versión 2** amplía los seis CRUD de la versión 1 con **diez recursos que poseen claves foráneas**. Al completar esta versión, el módulo contará con **16 recursos CRUD** en la API y el frontend.
+## 1. Evolución del proyecto
 
-El sistema está dividido en dos aplicaciones independientes:
+| Versión | Alcance | Estado conocido |
+|---|---|---|
+| **V1** | Seis recursos de Investigación sin claves foráneas. | Implementados y comprobados previamente por el equipo. |
+| **V2** | Diez recursos adicionales con claves foráneas y asociaciones; se conservan los seis de V1. | Código integrado por el equipo; queda pendiente registrar/verificar la regresión final de todos los contratos en V3. |
+| **V3** | Login JWT, sesiones PHP, permisos `admin`/`consulta` y administración de `usuario`, `rol` y `rol_usuario`. | **En desarrollo avanzado**. Login, middleware, `usuario` y `rol_usuario` comprobados; `rol` de Miguel e integración final pendientes. |
+| **V4** | Consultas multitabla, dashboard, mejoras visuales y publicación. | Pendiente; fuera del alcance de esta rama. |
 
-- **Backend:** API REST desarrollada en PHP que se comunica con MariaDB mediante PDO.
-- **Frontend:** aplicación PHP con HTML, CSS y Bootstrap local, que consume la API mediante HTTP.
+La base de datos del proyecto contiene **19 tablas**: 16 del módulo de Investigación y tres de seguridad (`usuario`, `rol`, `rol_usuario`). La V3 agrega las reglas de identidad y permisos sin sustituir los contratos de negocio de V1/V2.
 
-El frontend **no se conecta directamente a MariaDB** ni utiliza clases internas del backend.
+## 2. Arquitectura
 
----
+El sistema está dividido en dos repositorios:
 
-## Estado de la versión
+- **`Proyecto_Investigacion_Backend` (este repositorio):** API REST en PHP, controladores, servicios, repositorios PDO, modelos, seguridad y pruebas.
+- **`Proyecto_Investigacion_Frontend`:** vistas y formularios PHP; utiliza sesiones y consume la API por HTTP. **No debe conectarse directamente a MariaDB.**
 
-La **V1 ya cuenta con los seis CRUD implementados y comprobados por el equipo**. Las vistas y las rutas del frontend se reorganizaron por entidad y se incorporó un archivo CSS personalizado.
+El recorrido de una petición protegida es:
 
-La **V2 se encuentra en preparación y documentación**. Los diez CRUD nuevos, sus formularios y sus pruebas de integración **todavía están pendientes de implementación**.
-
-El entorno local utilizado incluye:
-
-- MariaDB;
-- API de Investigación;
-- frontend PHP;
-- phpMyAdmin.
-
-La implementación de V2 seguirá el **Spec Kit**: especificar y aprobar los contratos antes de programar, implementar por capas y ejecutar pruebas de regresión de V1.
-
----
-
-## Cómo levantar el proyecto
-
-Desde la raíz del repositorio **backend**, donde está `docker-compose.yml`:
-
-```powershell
-docker compose up -d --build
+```text
+Navegador → Frontend PHP (sesión) → API (Bearer JWT)
+                                   ↓
+                         Middleware de autorización
+                                   ↓
+                       Controlador → Servicio → Repositorio PDO → MariaDB
 ```
 
-Para comprobar los contenedores:
+La API valida el JWT y **vuelve a consultar los roles vigentes en MariaDB** antes de permitir una operación. El menú del frontend refleja los permisos, pero **no reemplaza** esta protección del backend.
 
-```powershell
-docker compose ps
+### Estructura principal
+
+```text
+Proyecto_Investigacion_Backend/
+├── api_investigacion/
+│   ├── index.php                         # Enrutador principal de la API
+│   ├── controladores/                    # Entradas HTTP por recurso
+│   ├── servicios/                        # Reglas de negocio y ensamblador
+│   ├── repositorios/                     # Interfaces e implementaciones PDO
+│   ├── modelos/                          # Entidades
+│   ├── middleware/                       # Comprobación de JWT y permisos
+│   ├── excepciones/                      # Errores de negocio y acceso
+│   ├── scripts/
+│   │   └── inicializar_admin.php         # Primer ADMIN; ejecución solo por CLI
+│   └── pruebas/                          # Pruebas aisladas de la API
+├── db/
+│   └── init.sql                          # Esquema y semillas públicas de roles
+├── docs/
+│   └── spec_kit/
+│       └── versiones/
+│           ├── v1_investigacion/
+│           ├── v2_entidades_con_fk/
+│           └── v3_seguridad/
+├── docker-compose.yml
+├── .env.example
+└── README.md
 ```
 
-Para detener el entorno sin eliminar los datos del volumen:
+**Separación de responsabilidades:** los controladores procesan HTTP; los servicios aplican las reglas; los repositorios ejecutan SQL preparado; el ensamblador construye las dependencias. El frontend permanece en otro repositorio.
+
+## 3. Requisitos y puesta en marcha
+
+Se necesita **Docker Desktop / Docker Compose** y una copia local de ambos repositorios cuando se utilice la interfaz web.
+
+1. Clonar el backend y el frontend en carpetas independientes.
+2. Desde la raíz del backend, crear el archivo `.env` a partir de `.env.example` y configurar las credenciales locales de MariaDB, `FRONT_PATH` con la ruta real del frontend y un `JWT_SECRET` aleatorio y suficientemente seguro. **No subir `.env` ni publicar secretos.**
+3. Levantar los servicios desde la raíz del backend:
+
+   ```powershell
+   docker compose up -d --build
+   docker compose ps
+   ```
+
+4. Verificar los puertos efectivos con el archivo `docker-compose.yml` de la instalación.
+
+### Servicios del entorno local utilizado
+
+| Servicio | Acceso habitual |
+|---|---|
+| Frontend | http://localhost:8110 |
+| API | http://localhost:8111 |
+| phpMyAdmin | http://localhost:8105 |
+| MariaDB desde el equipo | `localhost:13330` |
+
+Estos puertos corresponden al entorno probado y pueden cambiar según la configuración Docker.
+
+Para detener los contenedores **sin borrar el volumen de MariaDB**:
 
 ```powershell
 docker compose down
 ```
 
-> **Importante:** no utilizar `docker compose down -v` para detener el proyecto normalmente: la opción `-v` elimina también los volúmenes y puede borrar los datos almacenados en MariaDB.
+> **Precaución:** no usar `docker compose down -v` durante el trabajo normal; `-v` elimina los volúmenes y puede borrar la base de datos local.
 
-### Accesos locales
+### Inicializar el primer administrador
 
-| Servicio | Dirección |
-|---|---|
-| Frontend | http://localhost:8110 |
-| API | http://localhost:8111 |
-| phpMyAdmin | http://localhost:8105 |
-| MariaDB | `localhost:13330` |
+En una instalación nueva, los roles públicos `admin` y `consulta` se preparan desde SQL/configuración; la primera cuenta administradora se crea mediante el script **exclusivo de consola**, no mediante un endpoint público. Este paso **no se ejecuta automáticamente** solo con `docker compose up -d --build` en la configuración probada.
 
-El endpoint raíz de diagnóstico de la API es:
+Con MariaDB levantada, abrir PowerShell en la raíz del backend y ejecutar **una sola vez cuando aún no exista un administrador válido**:
 
-http://localhost:8111/
+```powershell
+$env:ADMIN_INICIAL_USERNAME = Read-Host 'Usuario administrador inicial'
+$env:ADMIN_INICIAL_EMAIL = Read-Host 'Correo del administrador'
+$claveSegura = Read-Host 'Contraseña inicial (mínimo 12 caracteres)' -AsSecureString
 
-Los puertos corresponden al entorno local utilizado en V1; deben cotejarse con el `docker-compose.yml` vigente si se modifica su configuración.
+try {
+    $env:ADMIN_INICIAL_PASSWORD = [System.Net.NetworkCredential]::new('', $claveSegura).Password
 
----
-
-## Qué incluye la V2
-
-### Recursos de V1 — Se mantienen (6)
-
-Estos recursos **ya están implementados** y deben seguir funcionando sin cambios de contrato:
-
-| Recurso | Clave primaria |
-|---|---|
-| `area_conocimiento` | `id` (`VARCHAR(6)`) |
-| `objetivo_desarrollo_sostenible` | `id` |
-| `area_aplicacion` | `id` |
-| `termino_clave` | `termino` |
-| `universidad` | `id` |
-| `linea_investigacion` | `id` autoincremental |
-
-### Recursos nuevos de V2 — Pendientes (10)
-
-Las **tres primeras** tablas poseen una clave primaria simple y al menos una clave foránea:
-
-| Recurso | Clave primaria | Relación principal |
-|---|---|---|
-| `docente` | `cedula` | `linea_investigacion_principal` → `linea_investigacion.id` |
-| `grupo_investigacion` | `id` | `universidsad` → `universidad.id` |
-| `semillero` | `id` | `grupo_investigacion` → `grupo_investigacion.id` |
-
-Las **siete restantes** son tablas de asociación con **clave primaria compuesta**:
-
-| Recurso | Clave primaria compuesta | Relación |
-|---|---|---|
-| `participa_grupo` | (`docente_cedula`, `grupo_investigacion_id`) | Docente ↔ Grupo |
-| `participa_semillero` | (`docente`, `semillero`) | Docente ↔ Semillero |
-| `grupo_linea` | (`grupo_investigacion`, `linea_investigacion`) | Grupo ↔ Línea |
-| `semillero_linea` | (`semillero`, `linea_investigacion`) | Semillero ↔ Línea |
-| `ac_linea` | (`linea_investigacion`, `area_conocimiento`) | Línea ↔ Área de conocimiento |
-| `ods_linea` | (`linea_investigacion`, `ods`) | Línea ↔ ODS |
-| `aa_linea` | (`area_aplicacion`, `linea_investigacion`) | Área de aplicación ↔ Línea |
-
-> **Nota sobre el SQL:** los campos `nacionalidaad` (en `docente`) y `universidsad` (en `grupo_investigacion`) están escritos así en el script recibido. Se deben respetar sus nombres reales al consultar la base de datos; cualquier corrección del esquema requiere una decisión documentada.
-
-### Tablas fuera del alcance de V2
-
-La base de datos tiene **19 tablas en total**: 16 corresponden al módulo de Investigación y tres a la gestión de usuarios.
-
-Las tablas `usuario`, `rol` y `rol_usuario` se utilizarán en **V3** para autenticación, autorización y administración de usuarios. **No forman parte de los diez CRUD nuevos de V2**.
-
----
-
-## Estructura principal del backend
-
-```text
-api_investigacion/
-├── index.php
-├── Dockerfile
-├── controladores/
-├── excepciones/
-├── modelos/
-├── pruebas/
-├── repositorios/
-│   └── ... carpetas organizadas por recurso
-└── servicios/
-    ├── ensamblador.php
-    └── ... carpetas organizadas por recurso
-
-db/
-└── init.sql
-
-docs/
-└── spec_kit/
-    └── versiones/
-        └── ... documentación de V1 y V2
-
-docker-compose.yml
-.env.example
-.gitignore
-README.md
+    docker compose run --rm --no-deps `
+        -e ADMIN_INICIAL_USERNAME `
+        -e ADMIN_INICIAL_EMAIL `
+        -e ADMIN_INICIAL_PASSWORD `
+        api-investigacion php /app/scripts/inicializar_admin.php
+} finally {
+    Remove-Item Env:ADMIN_INICIAL_USERNAME -ErrorAction SilentlyContinue
+    Remove-Item Env:ADMIN_INICIAL_EMAIL -ErrorAction SilentlyContinue
+    Remove-Item Env:ADMIN_INICIAL_PASSWORD -ErrorAction SilentlyContinue
+    Remove-Variable claveSegura -ErrorAction SilentlyContinue
+}
 ```
 
-La distribución muestra la estructura de referencia y la organización por recurso. **Los archivos específicos de las diez entidades se agregarán progresivamente durante V2.** La ubicación exacta de los documentos puede ajustarse a la rama de trabajo.
+El script usa `password_hash()` y registra la asociación `admin` en `rol_usuario`. La primera ejecución manual se comprobó en la base local; **siguen pendientes** las pruebas completas de idempotencia, instalación limpia y recuperación de estados inconsistentes. No publicar contraseñas ni hashes en logs, capturas o Git.
 
-### `api_investigacion/index.php`
+## 4. Recursos de Investigación — V1 y V2
 
-Es el **Front Controller** de la API: recibe las peticiones HTTP y las dirige al controlador correspondiente. No contiene consultas SQL ni reglas de negocio.
+La API conserva rutas específicas por entidad. No existe un controlador genérico de `/api/{tabla}`.
 
-### `controladores/`
-
-Reciben las solicitudes, validan su estructura, llaman a los servicios y producen respuestas HTTP en formato JSON. **No acceden directamente a MariaDB**.
-
-### `servicios/`
-
-Contienen las reglas de negocio: campos obligatorios, duplicados, validaciones de claves foráneas, estado de los recursos y operaciones permitidas. No contienen SQL ni códigos de respuesta HTTP.
-
-### `servicios/ensamblador.php`
-
-Centraliza la construcción y conexión de repositorios, servicios y sus dependencias.
-
-### `repositorios/`
-
-Contienen las interfaces y las implementaciones MariaDB con **PDO y consultas preparadas**. Son la capa encargada de ejecutar SQL.
-
-### `modelos/`, `excepciones/` y `pruebas/`
-
-Representan las entidades del dominio, los errores de negocio y las pruebas para verificar cada capa de manera independiente.
-
-### `db/init.sql`
-
-Contiene el esquema de las **19 tablas** y los registros iniciales. Las tablas existen desde el arranque de la base de datos; lo que se desarrolla por versiones son los recursos de la aplicación.
-
-### `docs/spec_kit/`
-
-Conserva las especificaciones, decisiones técnicas, modelo de datos, contratos HTTP, guía de pruebas, tareas y lista de verificación. Los contratos nuevos de V2 deben aprobarse antes de implementarse.
-
----
-
-## Endpoints de la API
-
-Cada recurso tiene rutas específicas; **no se utiliza una ruta genérica que acepte cualquier nombre de tabla**, como `/api/{tabla}`.
-
-### Endpoints de V1 — Disponibles
+**Seis recursos de V1:**
 
 ```text
 /api/area_conocimiento
@@ -202,9 +154,7 @@ Cada recurso tiene rutas específicas; **no se utiliza una ruta genérica que ac
 /api/linea_investigacion
 ```
 
-Las operaciones implementadas de V1 incluyen `GET`, `POST`, `PUT`, `PATCH` y `DELETE`, con rutas de colección y de registro individual según la clave primaria del recurso.
-
-### Endpoints de V2 — Propuestos, todavía no implementados
+**Diez recursos añadidos en V2:**
 
 ```text
 /api/docente
@@ -219,82 +169,117 @@ Las operaciones implementadas de V1 incluyen `GET`, `POST`, `PUT`, `PATCH` y `DE
 /api/aa_linea
 ```
 
-Para cada recurso se planifican las siguientes operaciones:
+Los recursos con clave primaria compuesta se identifican mediante sus **dos segmentos** en las rutas de detalle. Los cinco vínculos simples `grupo_linea`, `semillero_linea`, `ac_linea`, `ods_linea` y `aa_linea` permiten GET/POST/DELETE, pero **no PUT/PATCH** (`405` para usuarios autorizados). Las entidades editables y las dos participaciones siguen sus contratos propios de V2. Consultar [contratos V2](docs/spec_kit/versiones/v2_entidades_con_fk/6_contracts.md) para campos, métodos y códigos exactos.
 
-| Método | Operación prevista |
+En V3, todas las rutas de estos recursos requieren autenticación. El permiso se aplica **por método**: `consulta` puede leer; `admin` puede efectuar las operaciones permitidas por cada contrato.
+
+## 5. Seguridad — V3
+
+### Autenticación y JWT
+
+- `POST /api/login` recibe `username` y `password`; es el único inicio de sesión público.
+- Las contraseñas se validan con `password_verify()` y se almacenan mediante `password_hash(PASSWORD_DEFAULT)`.
+- El token es **JWT HS256**, firmado con `JWT_SECRET` privado y válido durante **3600 segundos (60 minutos)**.
+- Las solicitudes a la API protegida envían `Authorization: Bearer <token>`.
+- Los tokens ausentes, inválidos o vencidos se rechazan con **401**; las cuentas autenticadas sin permisos para la operación reciben **403**.
+- El sistema no expone hashes ni contraseñas en el JSON de usuario.
+- Una cuenta creada **sin un rol activo no puede iniciar sesión**. El alta de `usuario` no asigna roles automáticamente.
+
+### Roles y autorización
+
+| Rol | Permisos esperados |
 |---|---|
-| `GET` | Listar registros u obtener uno específico |
-| `POST` | Crear un registro o una asociación |
-| `PUT` | Reemplazar los campos editables de un registro |
-| `PATCH` | Actualizar los campos enviados |
-| `DELETE` | Retirar lógicamente el registro |
+| `admin` | Consultar y modificar recursos V1/V2 según sus contratos; gestionar usuarios, roles y asignaciones. |
+| `consulta` | Consultar los 16 recursos V1/V2, sin escrituras ni gestión administrativa. |
 
-**Pendiente de aprobación:** las rutas individuales de las siete tablas con clave primaria compuesta deberán identificar **ambos valores** de su clave. Su formato definitivo se establecerá en `6_contracts.md` de V2; no debe suponerse que basta con un único `{id}`.
+Se puede asociar más de un rol a un usuario. **El rol administrativo depende del nombre `admin` vigente en la BD**, no de un ID numérico universal. Cuando se desactiva una cuenta o se retira su último rol, la autorización se deniega aun si el JWT anterior no ha expirado.
 
----
+### Administración de `usuario` — implementada por Ángel
 
-## Claves foráneas e integridad referencial
+**Acceso exclusivo para `admin`:**
 
-En V2, las claves foráneas conectan los recursos entre sí. Esto requiere:
+| Método y ruta | Operación |
+|---|---|
+| `GET /api/usuario` | Listar usuarios activos. |
+| `GET /api/usuario/{id}` | Consultar uno activo. |
+| `POST /api/usuario` | Registrar una cuenta; contraseña hasheada. |
+| `PUT /api/usuario/{id}` | Reemplazar datos editables del perfil. |
+| `PATCH /api/usuario/{id}` | Modificar solo los campos enviados. |
+| `PATCH /api/usuario/{id}/password` | Actualizar contraseña, independientemente del perfil. |
+| `DELETE /api/usuario/{id}` | **Borrado lógico:** establecer `activo=0`. |
 
-1. **Validar relaciones:** no permitir, por ejemplo, registrar un `semillero` asociado a un `grupo_investigacion` inexistente.
-2. **Validar el estado lógico:** comprobar también que los recursos relacionados estén activos, según las reglas aprobadas en el Spec Kit.
-3. **Prevenir asociaciones duplicadas:** respetar las claves primarias compuestas de las siete tablas puente.
-4. **Mostrar opciones en el frontend:** cargar los desplegables de selección de relaciones desde la API, sin consultar MariaDB directamente.
-5. **Traducir errores:** devolver respuestas HTTP consistentes, sin exponer errores internos de SQL; se propone `409` para conflictos de integridad y `422` para datos inválidos, sujetos al contrato aprobado.
+El cambio de contraseña aplica también al usuario ADMIN cuando se realiza mediante una cuenta autorizada. No se permite desactivar al **último administrador activo**; esta protección se probó con repositorios falsos, pero **no se puso en riesgo el ADMIN real** en una solicitud destructiva.
 
-La base de datos garantiza las restricciones físicas de FK; la aplicación debe validar además las reglas de negocio, incluido el uso de registros inactivos.
+### Administración de `rol_usuario` — implementada por Ángel
 
----
+**Acceso exclusivo para `admin`:**
 
-## Borrado lógico
+| Método y ruta | Operación |
+|---|---|
+| `GET /api/rol_usuario` | Listar asignaciones. |
+| `GET /api/rol_usuario/{usuario_id}/{rol_id}` | Consultar una asignación. |
+| `POST /api/rol_usuario` | Asignar un rol a un usuario. |
+| `DELETE /api/rol_usuario/{usuario_id}/{rol_id}` | Retirar una asignación. |
 
-El módulo de Investigación utiliza el campo:
+`rol_usuario` tiene clave primaria compuesta `(usuario_id, rol_id)` y **no tiene columna `activo`**. Por eso se elimina físicamente **solo el vínculo**, sin borrar el usuario ni el catálogo de roles. Las asignaciones repetidas se rechazan con `409`; no se usan PUT/PATCH (`405`). El backend incorpora protección del último administrador; queda pendiente su prueba HTTP sobre una base descartable.
 
-```sql
-activo BOOLEAN NOT NULL DEFAULT TRUE
+### Catálogo `rol` — pendiente de integración
+
+El CRUD de tipos de rol (`/api/rol`) corresponde a **Miguel**. No debe confundirse con `/api/rol_usuario`, que únicamente administra asignaciones. Los roles `admin` y `consulta` ya existen en la instalación probada; integrar el catálogo completo antes de declarar terminada V3.
+
+## 6. Pruebas realizadas y pendientes
+
+### Pruebas del backend comunicadas por Ángel
+
+| Componente | Evidencia obtenida |
+|---|---|
+| Login y JWT | **15/15** pruebas aisladas; login HTTP real de ADMIN. |
+| Middleware de autorización | **28/28** pruebas aisladas; GET sin token `401` y GET con JWT permitido `200`. |
+| CRUD de `usuario` | **28/28** pruebas aisladas; alta, GET, PUT/PATCH, cambio de contraseña, duplicados y borrado lógico contra API/MariaDB. |
+| `rol_usuario` | **15/15** pruebas aisladas; POST `201`, duplicado `409`, GET `200`, DELETE `200`, GET posterior `404`. |
+| Permisos revocados | Con el **mismo JWT**, la API rechazó con `403` una consulta después de retirar el rol. |
+
+Para ejecutar las suites existentes desde Docker:
+
+```powershell
+docker compose exec -T api-investigacion php /app/pruebas/prueba_login_jwt.php
+docker compose exec -T api-investigacion php /app/pruebas/prueba_middleware_autorizacion.php
+docker compose exec -T api-investigacion php /app/pruebas/prueba_usuario_aislada.php
+docker compose exec -T api-investigacion php /app/pruebas/prueba_rol_usuario_aislada.php
 ```
 
-El `DELETE` de la API **no elimina físicamente** la fila. Marca el recurso como inactivo:
+En pruebas de navegador se crearon y editaron cuentas temporales, se verificó `activo=0` tras desactivar un usuario y se asignó/retiró/restauró `consulta` a Mariana. Con su sesión todavía abierta, el frontend dejó de mostrar los registros al retirarle el rol y volvió a permitir consultas después de reasignarlo e iniciar sesión nuevamente. MariaDB mostró que **ADMIN era el único administrador activo**. Estas pruebas se registran en [evidencias del frontend V3](docs/spec_kit/versiones/v3_seguridad/REGISTRO_FASE6_FRONTEND.md).
 
-```sql
-UPDATE nombre_tabla
-SET activo = FALSE
-WHERE ...
-  AND activo = TRUE;
-```
+**Pendientes antes del cierre de V3:**
 
-Los listados normales devuelven únicamente los registros activos. El campo `activo` no debe ser editable directamente mediante `POST`, `PUT` o `PATCH`.
+1. Integrar y probar el CRUD `rol` de Miguel y la selección dinámica de roles en el frontend.
+2. Completar la matriz HTTP de los 16 recursos V1/V2 con `admin` y `consulta`; ejecutar regresión de las versiones anteriores.
+3. Probar en una **base de datos descartable** la protección del último administrador y escenarios negativos adicionales de integridad/HTTP.
+4. Comprobar instalación limpia, idempotencia del bootstrap y ausencia de secretos versionados.
+5. Verificar frontend con API apagada, logout/cookies y formularios adversariales; resolver con el equipo la diferencia entre streams HTTP y cURL indicada por la metodología.
+6. Realizar revisión cruzada, cerrar checklist y compuertas SDD y aprobar PR antes de generar el tag `v3` en `main`.
 
-En V2 también se deben definir las reglas de retiro y de nueva creación de asociaciones con clave primaria compuesta, para evitar inconsistencias con relaciones históricas inactivas.
+No se debe interpretar la finalización de las pruebas de Ángel como aprobación automática de toda la versión.
 
----
+## 7. Documentación SpecKit
 
-## Pruebas y criterios de aceptación de V2
+La especificación de V3 y su seguimiento están en [`docs/spec_kit/versiones/v3_seguridad/`](docs/spec_kit/versiones/v3_seguridad/):
 
-Para considerar finalizada la V2, será necesario comprobar:
+- [Especificación — 2_spec.md](docs/spec_kit/versiones/v3_seguridad/2_spec.md)
+- [Plan técnico — 3_plan.md](docs/spec_kit/versiones/v3_seguridad/3_plan.md)
+- [Contratos API y web — 6_contracts.md](docs/spec_kit/versiones/v3_seguridad/6_contracts.md)
+- [Quickstart y pruebas — 7_quickstart.md](docs/spec_kit/versiones/v3_seguridad/7_quickstart.md)
+- [Tareas — 8_tasks.md](docs/spec_kit/versiones/v3_seguridad/8_tasks.md)
+- [Checklist — 9_checklist.md](docs/spec_kit/versiones/v3_seguridad/9_checklist.md)
+- [Evidencia de usuarios](docs/spec_kit/versiones/v3_seguridad/REGISTRO_FASE4_USUARIO.md)
+- [Evidencia de `rol_usuario`](docs/spec_kit/versiones/v3_seguridad/REGISTRO_FASE5_ROL_USUARIO.md)
+- [Evidencia del frontend](docs/spec_kit/versiones/v3_seguridad/REGISTRO_FASE6_FRONTEND.md)
 
-- Los **seis CRUD de V1** siguen funcionando sin regresiones.
-- Los **diez CRUD de V2** funcionan tanto en la API como en el frontend.
-- No se aceptan claves foráneas que incumplan las reglas de integridad y estado activo.
-- Las siete asociaciones con clave compuesta identifican correctamente cada registro y rechazan duplicados.
-- `PUT` y `PATCH` cumplen comportamientos diferentes según los contratos.
-- `DELETE` realiza borrado lógico y los listados ocultan los registros retirados.
-- Los formularios cargan las opciones de relaciones mediante peticiones HTTP a la API.
-- El frontend sigue mostrando un mensaje adecuado cuando la API no está disponible, sin conectarse a la base de datos.
-- Las pruebas de capas y los escenarios de integración quedan documentados en el Spec Kit.
+## 8. Flujo de trabajo con Git
 
-**Estado de estas pruebas:** las comprobaciones de V1 ya fueron realizadas por el equipo; las pruebas nuevas de V2 permanecen pendientes hasta su implementación.
+Los desarrollos individuales se realizan en ramas de funcionalidad. Las ramas utilizadas para el trabajo de Ángel son:
 
----
+- Backend: `feature/angel-investigacion-v3`.
+- Frontend: `feature/angel-frontend-v3`.
 
-## Trabajo por versiones
-
-| Versión | Alcance | Estado |
-|---|---|---|
-| **V1** | Seis CRUD sin claves foráneas | Implementados y comprobados por el equipo |
-| **V2** | Diez CRUD con claves foráneas, manteniendo V1 | Documentación y desarrollo pendientes |
-| **V3** | Usuarios, roles, JWT y autorización | Futura |
-| **V4** | Consultas multitabla, dashboard y despliegue | Futura |
-
-**Este README describe el alcance previsto de V2.** Conforme avance la implementación, deberán actualizarse el estado, las rutas aprobadas, los comandos de prueba y los resultados reales antes del cierre y la entrega de la versión.
+Cada repositorio se confirma y publica **por separado**. Los cambios llegan a `main` mediante Pull Request y revisión del integrador; el **tag `v3`** se crea solo después de completar las pruebas y aprobar la versión con el equipo.

@@ -30,6 +30,7 @@ services:
       DB_DSN: mysql:host=mariadb;port=3306;dbname=${MARIADB_DATABASE}
       DB_USUARIO: ${MARIADB_USER}
       DB_CLAVE: ${MARIADB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?Debes_configurar_JWT_SECRET_en_.env}
     depends_on:
       mariadb:
         condition: service_healthy
