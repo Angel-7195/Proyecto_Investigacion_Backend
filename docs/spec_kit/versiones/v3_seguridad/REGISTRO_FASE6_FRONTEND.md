@@ -1,5 +1,7 @@
 # Registro de evidencia — Fase 6: frontend de seguridad V3
 
+> **Anexo de avance — 16-11-2026:** se agregó una tarjeta de acceso de demostración **opcional** a la vista de login mediante configuración de entorno. La sintaxis de esa vista y un acceso administrativo real ya se comprobaron. Esta adición no modifica las pruebas originales del **13-11**, que se preservan debajo. Véase [REGISTRO_BOOTSTRAP_Y_LOGIN_DEMO_20261116.md](REGISTRO_BOOTSTRAP_Y_LOGIN_DEMO_20261116.md).
+
 - **Proyecto:** Investigación — V3, autenticación y autorización.
 - **Responsable de esta implementación:** Ángel David Gutiérrez Ladino.
 - **Fecha de las comprobaciones:** 13 de noviembre de 2026.
@@ -104,3 +106,11 @@ El primer SELECT estuvo vacío **durante la prueba de retiro**. El segundo devol
 | RF-v3-03/04, CA3/6 | Revocación de acceso con sesión JWT previamente emitida | Código HTTP exacto no capturado en esta prueba web; fase 5 sí tiene API `403`. |
 
 **Conclusión acotada:** el flujo principal del frontend desarrollado por Ángel está implementado y probado manualmente en el entorno local, con controles relevantes de seguridad y persistencia. **La aceptación global de V3 permanece abierta** hasta integración de `rol`, regresión completa y revisión del equipo.
+
+## 6. Adición posterior — credenciales de demostración (15-11-2026)
+
+El login `front_php/vistas/autenticacion/login.php` lee `LOGIN_DEMO_ENABLED`, `LOGIN_DEMO_ADMIN_USERNAME` y `LOGIN_DEMO_ADMIN_PASSWORD` del entorno del proceso PHP; el archivo `docker-compose.demo.yml` permite pasarlas al frontend en Docker. Si la bandera no vale `1` o falta alguno de los datos, la tarjeta no debe mostrarse. Se validó `php -l` dentro del contenedor sin errores y se observó visualmente la tarjeta «Acceso de demostración».
+
+**Prueba de coherencia:** un nombre configurado solo en la tarjeta, pero ausente en `usuario`, produjo error normal de login. Después de usar credenciales que correspondían a la cuenta `ADMIN` existente, el estudiante entró al panel y vio navegación administrativa. **No** se creó una cuenta nueva ni se cambió la contraseña por modificar variables del aviso.
+
+**Pendiente:** verificar expresamente el estado oculto y el caso de variables incompletas, revisar que la configuración real no se versionó, preparar BD descartable sin datos reales y revisar su exposición antes de publicar. El diseño no altera JWT, autorización de API ni creación del ADMIN inicial.

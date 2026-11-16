@@ -1,5 +1,7 @@
 # Plan técnico — v3: Seguridad (Investigación)
 
+> **Actualización — 16-11-2026:** quedó probado el encadenamiento Docker `mariadb (healthy) → inicializar-admin (exit 0) → API`, la creación en base nueva aislada y la repetición del inicializador sin duplicaciones. También se verificó la sintaxis de la tarjeta opcional de credenciales en el login y un ingreso administrativo real. Estas pruebas son locales y no prueban despliegue en AlwaysData ni la totalidad de casos negativos. Ver [REGISTRO_BOOTSTRAP_Y_LOGIN_DEMO_20261116.md](REGISTRO_BOOTSTRAP_Y_LOGIN_DEMO_20261116.md).
+
 > **Ejecución parcial del frontend registrada el 13-11-2026:** login, sesión, menú diferenciado, CRUD principal de `usuario` y asignación/retiro de `rol_usuario` observados; la retirada del único rol de Mariana durante una sesión abierta impidió nuevas consultas hasta restaurarlo y volver a iniciar sesión. Fuente: [REGISTRO_FASE6_FRONTEND.md](REGISTRO_FASE6_FRONTEND.md). Quedan integración del catálogo `rol` de Miguel, verificación de API apagada y regresión completa.
 
 > **Actualización de evidencia — 12-11-2026, fase 5:** gestión principal de `rol_usuario` comprobada por **15/15** pruebas aisladas y HTTP real: asignación `201`, ficha `200`, duplicado `409`, retiro `200`, ficha posterior `404`. Un usuario `consulta` real obtuvo GET V1 `200`, POST V1 `403` y GET administrativo `403`; tras retirar el rol, **el mismo JWT** pasó a GET `403`. SQL confirmó usuario sin rol aún activo y `ADMIN` con `admin`. La protección del último administrador **queda pendiente de prueba final solo en base descartable**, sin arriesgar el volumen local. Ver [REGISTRO_FASE5_ROL_USUARIO.md](REGISTRO_FASE5_ROL_USUARIO.md).
@@ -109,18 +111,18 @@ Las rutas de archivo de arriba son **orientativas**, deben ajustarse a la estruc
 1. Confirmar `main` con v2 cerrada, tag y regresión verde.
 2. Utilizar el inventario de 16 recursos/rutas/métodos ya documentado en V2; cotejar contra el router integrado. Para las **cinco asociaciones simples** conservar PUT/PATCH → `405`.
 3. **DDL fuente comprobado:** `usuario` y `rol` con id `INT AUTO_INCREMENT`; `rol_usuario` con PK compuesta y FKs `ON DELETE CASCADE`, sin `activo`. Contrastar con `SHOW CREATE TABLE` de la instancia real antes de ejecutar migraciones.
-4. Resolver C1–C12 con decisiones y verificaciones del equipo; C2/C12 tienen base documental y deben confirmarse en el código. **C3 y C5 están aprobados; el estudiante ya ejecutó la creación inicial manual en su entorno. Siguen pendientes la segunda ejecución, la instalación limpia, el procedimiento Docker automático y las pruebas restantes.**
+4. Resolver C1–C13 con decisiones y verificaciones del equipo; C2/C12 tienen base documental y deben confirmarse en el código. **C3 y C5 tienen acuerdo y C5 ya dispone de pruebas locales de creación en volumen nuevo, segunda ejecución y arranque automático Docker; permanecen pruebas negativas, revisión humana y despliegue sin Docker.**
 
-### Fase A.1 — Inicialización de seguridad (alta manual CLI probada; pruebas de repetición y arranque limpio pendientes)
+### Fase A.1 — Inicialización de seguridad (CLI y orquestación Docker probados localmente)
 
 1. **Nuevo volumen:** agregar en `db/init.sql`, con comentario de cambio numerado en su cabecera, dos INSERT de `rol` por **nombre**, `admin` y `consulta`; no insertar contraseñas ni asumir IDs. Mantener las tablas del curso sin rediseño.
 2. **CLI exclusivo:** crear el archivo propuesto `api_investigacion/scripts/inicializar_admin.php` y ejecutarlo únicamente como proceso de consola autorizado, después de que MariaDB esté disponible. El script obtiene `ADMIN_INICIAL_USERNAME`, `ADMIN_INICIAL_EMAIL` y `ADMIN_INICIAL_PASSWORD` desde el entorno, valida presencia y seguridad mínima, usa `password_hash(PASSWORD_DEFAULT)`, consulta los IDs de los roles, crea el usuario inicial y relaciona `rol_usuario` **en una transacción**, con prepared statements en el repositorio/componente de acceso a datos; no publicar ninguna URL de bootstrap.
 3. **Idempotencia y defensa:** con rol y administrador inicial ya existentes, verificar correspondencia y terminar sin alterar la contraseña, crear usuarios adicionales o duplicar asociaciones. Si hay administradores inconsistentes/inactivos o ya existe el mismo username/email sin asignación, **detenerse y solicitar intervención autorizada**, no convertir automáticamente otra cuenta en admin. No persistir ni imprimir el secreto inicial en registros de Docker.
 4. **Volumen ya creado:** los INSERT nuevos de `init.sql` no se ejecutan otra vez. El inicializador deberá asegurar los roles públicos por `nombre` de forma idempotente y luego aplicar la regla de bootstrap, o ejecutar una migración de semillas equivalente y documentada; **jamás** requerir `docker compose down -v` para aplicar esta versión.
-5. **Un solo comando:** cuando se implemente, revisar `docker-compose.yml` y definir un proceso de inicialización de ejecución única con orden de dependencia/estado saludable, integrado al arranque documentado `docker compose up -d --build`. Un entorno sin credenciales iniciales en su primera instalación debe **fallar cerrado** y emitir una instrucción no sensible de configuración, nunca crear `admin/admin123`.
-6. **Exposición y cierre:** documentar `.env.example` **solo con nombres y valores ficticios/vacíos**, retirar el secreto de bootstrap del entorno una vez realizado el alta y requerir un cambio de contraseña inicial si el equipo lo adopta en la política de credenciales. No considerar el cierre aprobado sin pruebas reales de instalación limpia, reinicio y actualización de un volumen existente.
+5. **Un solo comando, implementado en entorno local:** `docker-compose.yml` define el servicio `inicializar-admin` después de la comprobación saludable de MariaDB, y la API espera su terminación correcta. El arranque `docker compose up -d --build` fue observado sin errores; en una base ya inicializada el servicio terminó con código 0 sin modificar la cuenta, y en un proyecto aislado con volumen nuevo creó el administrador. **Falta** ensayar variables iniciales ausentes/inválidas y comprobar que el primer arranque falle cerrado, sin credenciales predeterminadas inseguras.
+6. **Exposición y cierre:** documentar `.env.example` **solo con nombres y valores ficticios/vacíos**, proteger el archivo real `.env` y confirmar que los secretos no estén versionados; revisar cómo se retira o protege la contraseña inicial una vez creada la cuenta. **Quedan por probar** entradas inválidas, datos ambiguos/inactivos, preservación de más datos v2 preexistentes, recuperación y despliegue alternativo. La creación en base aislada, la repetición y el arranque local **sí** fueron observados.
 
-**Compuertas:** la primera ejecución manual de C5 se probó, y posteriormente se implementaron y probaron parcialmente C6 (JWT) y C4 (middleware). Esta sección describe la estrategia de inicialización y **no** cierra instalación limpia, idempotencia, matriz completa de roles ni política C8.
+**Compuertas:** C5 ahora dispone de evidencia manual, primer arranque Docker, base nueva aislada y repetición idempotente; también hay pruebas parciales de C6 (JWT) y C4 (middleware). **No** se cierra la aceptación general por faltar escenarios negativos, revisión de secretos, matriz de roles, política C8 y revisión humana.
 
 ### Fase B — Modelo y dependencias
 
@@ -156,6 +158,8 @@ Las rutas de archivo de arriba son **orientativas**, deben ajustarse a la estruc
 
 **Estado al 13-11-2026:** login y sesión, navegación con permisos, administración de `usuario` y `rol_usuario` están implementados y tienen pruebas manuales representativas. El código del cliente aún usa streams HTTP, la auditoría de cookie/logout y la API caída no se han completado, y el catálogo `rol` se integra después con Miguel. Las tareas siguientes describen la estrategia original; los resultados están en el registro de fase 6.
 
+**Adición de acceso demo — 16-11-2026:** `front_php/vistas/autenticacion/login.php` muestra, bajo condición de entorno, la cuenta académica de prueba. `docker-compose.demo.yml` pasa `LOGIN_DEMO_ENABLED`, `LOGIN_DEMO_ADMIN_USERNAME` y `LOGIN_DEMO_ADMIN_PASSWORD` únicamente al contenedor del frontend. Se comprobó `php -l` y login exitoso cuando los datos coincidieron con la base. Este aviso **no cambia la contraseña en MariaDB ni crea usuarios**. Exponer credenciales de un administrador entrega privilegios a cualquier visitante: usar solo base de demostración, datos ficticios y aislamiento del despliegue final. Véase el registro del 16-11.
+
 1. Añadir login con sesión PHP; regenerar ID de sesión al autenticar.
 2. Adaptar `front_php/cliente_api.php` para enviar `Authorization: Bearer`, sin declarar que ya usa cURL: V2 usa streams HTTP. Resolver C11-V2 (migración a cURL o excepción académica aprobada), y mantener la comunicación solo por HTTP.
 3. Añadir mensajes ante `401` (volver a entrar), `403` (sin permiso) y caída del servidor.
@@ -173,7 +177,7 @@ Las rutas de archivo de arriba son **orientativas**, deben ajustarse a la estruc
 
 ## 5. Compuertas del método SDD
 
-- **Compuerta 1 — Clarificaciones:** C1 resuelta con `init(4).sql` en cuanto al DDL fuente; las demás C2–C12 de `2_spec.md` se resuelven o verifican según su estado antes de desarrollar. Las C2/C12 ya tienen base documental, pero C2 exige contraste con el código.
+- **Compuerta 1 — Clarificaciones:** C1 resuelta con `init(4).sql` en cuanto al DDL fuente; las demás C2–C13 de `2_spec.md` se resuelven o verifican según su estado. Las C2/C12 ya tienen base documental, y C13 registra el modo demo; C2 exige contraste con el código.
 - **Compuerta 2 — Constitución:** esta última sección valida artículo por artículo las decisiones técnicas.
 - **Compuerta 3 — Checklist:** otra persona del equipo valida `9_checklist.md` antes de programar y de cerrar.
 
@@ -184,7 +188,7 @@ Las rutas de archivo de arriba son **orientativas**, deben ajustarse a la estruc
 | PHP puro | Extensiones nativas, sin Composer ni framework | Compatible con documentación |
 | Tres capas y ensamblador | Controlador → servicio → repositorio mediante interfaces y carpetas `Servicios_...` / `Repositorios_...` | Documentado en V2; verificar código integrado |
 | SQL y claves | Prepared statements; secrets en entorno | Compatible con metodología de aula |
-| Primer administrador | Roles públicos en `init.sql`; cuenta admin vía script PHP solo CLI y contraseña de entorno; preservar volumen | **Alta manual verificada**, instalación nueva/idempotencia/automatización pendientes |
+| Primer administrador | Roles públicos en `init.sql`; cuenta admin vía script PHP solo CLI y contraseña de entorno; preservar volumen | **Manual, volumen nuevo aislado, repetición y arranque Docker verificados**; casos negativos y hosting sin Docker pendientes |
 | JSON y rutas específicas | Login y CRUD administrativo con contratos propios | Compatible |
 | Un front por versión | Pantallas y sesión PHP nuevas en repo frontend | Compatible |
 | No mezclar procesos | Front llama API HTTP y no tiene PDO | Compatible |
@@ -211,6 +215,7 @@ El ejemplo `v3_segundo_motor` demuestra **qué archivos puede y no puede tocarse
 | `front_php/index.php`, `rutas/`, `vistas/` | Login, logout, menús y pantallas admin | Las 16 pantallas anteriores funcionan con rol autorizado |
 | `db/init.sql` | Semillas públicas de `admin` y `consulta` y comentario numerado | No modificar PK/FK ni introducir contraseñas en SQL |
 | `docker-compose.yml`, `.env.example` | Configuración y bootstrap reproducibles | Un solo arranque, sin secretos versionados ni eliminación de datos |
+| `front_php/vistas/autenticacion/login.php`, `docker-compose.demo.yml` | Tarjeta académica optativa, alimentada por variables de entorno | No modificar API, JWT, roles ni BD; no exponer credenciales en código/versionado |
 
 ## 8. Orden y controles técnicos de la ejecución
 

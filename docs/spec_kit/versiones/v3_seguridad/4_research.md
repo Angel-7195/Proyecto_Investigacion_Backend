@@ -76,7 +76,7 @@
 - **Alternativas:** (a) `POST /api/register` abierto a cualquiera o contraseña fija versionada; (b) un procedimiento controlado de bootstrap para sembrar el primer admin con hash y secreto proporcionado fuera de Git.
 - **Decisión acordada en esta revisión (9-11-2026):** (b). El primer administrador se creará con un script PHP `scripts/inicializar_admin.php`, **solo CLI**, sin ruta pública, obteniendo los datos sensibles del entorno y hasheando con `password_hash(PASSWORD_DEFAULT)` antes de guardar. Insertará la relación por IDs reales de `usuario` y `rol` en una transacción. Antes verificará administradores existentes para no generar duplicados ni asumir que el volumen está vacío.
 - **Consecuencias:** procedimiento reproducible y auditable; el proceso no imprime la clave, no deja una ruta de registro abierto, no modifica una contraseña existente y falla de forma segura ante datos ambiguos. La ejecución/orquestación Docker y el manejo del secreto tras el alta deben cerrarse y probarse.
-- **Estado a 10-11-2026:** implementación manual CLI y alta inicial **comprobadas por el estudiante** con SELECT de roles/vínculo. Pendientes idempotencia, volumen limpio y arranque automático; ver `REGISTRO_FASE1_ADMIN.md`.
+- **Estado histórico a 10-11-2026:** implementación manual CLI y alta inicial **comprobadas por el estudiante** con SELECT de roles/vínculo. **Actualización 15-11:** la repetición, volumen nuevo aislado y arranque automático por servicio Docker ya fueron observados; quedan pruebas adversas, auditoría de secretos y hosting sin Docker. Ver [REGISTRO_BOOTSTRAP_Y_LOGIN_DEMO_20261116.md](REGISTRO_BOOTSTRAP_Y_LOGIN_DEMO_20261116.md).
 
 ## D-v3-10 — Conservación de compatibilidad v1/v2
 
@@ -160,3 +160,12 @@
 - **Alternativas:** (a) mezclar validación documental y resultados ejecutados en una sola aprobación; (b) conservar ambas revisiones en secciones distintas, sin casillas premarcadas.
 - **Decisión documental:** (b). La revisión de requisitos sucede antes de programar; el cierre funcional solo se marca después de pruebas reales.
 - **Consecuencias:** no se confunde «el contrato está especificado» con «el software está probado».
+
+## D-v3-21 — Acceso de demostración visible en el login (15-11-2026)
+
+- **Contexto:** el docente necesita iniciar sesión fácilmente al evaluar el sistema, pero el bootstrap CLI crea la cuenta usando secretos de entorno y no existe registro público.
+- **Alternativas:** (a) publicar usuario/clave directamente en el código o SQL; (b) mostrar una tarjeta **opcional** en el frontend con valores leídos del entorno privado, que coincidan con la cuenta administrativa de una **base de prueba desechable**.
+- **Decisión de implementación:** (b), mediante `LOGIN_DEMO_ENABLED`, `LOGIN_DEMO_ADMIN_USERNAME` y `LOGIN_DEMO_ADMIN_PASSWORD` en `front-php`, habilitadas por `docker-compose.demo.yml` local. **No se cambia** `/api/login`, el almacenamiento ni la política de permisos.
+- **Evidencia:** el estudiante observó la tarjeta en navegador, validó la sintaxis de la vista y entró exitosamente con credenciales existentes; otro nombre ausente de MariaDB no pudo autenticarse. El modo oculto **no** se probó expresamente.
+- **Consecuencias/riesgos:** cualquier visitante que vea la tarjeta obtiene credenciales con rol `admin`. Solo utilizar con información ficticia, base aislada y plan de recreación; no incluir la clave literal en Git ni usar un administrador de producción. No presentar esta decisión como una medida de seguridad.
+- **Estado:** implementación local y prueba positiva acotada; pendiente auditoría de configuración y despliegue en AlwaysData. Ver [REGISTRO_BOOTSTRAP_Y_LOGIN_DEMO_20261116.md](REGISTRO_BOOTSTRAP_Y_LOGIN_DEMO_20261116.md).

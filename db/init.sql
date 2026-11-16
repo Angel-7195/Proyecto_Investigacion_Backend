@@ -269,6 +269,11 @@ VALUES
     ('admin', 'Administrador del sistema', TRUE),
     ('consulta', 'Usuario con permisos de solo lectura', TRUE);
 
+-- El usuario ADMIN no se inserta con SQL para no guardar contraseñas en texto
+-- plano ni hashes reutilizables en este archivo. Docker ejecuta posteriormente
+-- api_investigacion/scripts/inicializar_admin.php, que aplica password_hash(),
+-- crea la cuenta inicial y asigna su rol sin duplicar administradores activos.
+
 -- DATOS DE REFERENCIA (del Excel del módulo)
 -- ============================================================
 

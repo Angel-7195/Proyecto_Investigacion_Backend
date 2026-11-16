@@ -1,5 +1,7 @@
 # Modelo de datos — v3: usuarios, roles y asignaciones
 
+> **Seguimiento — 16-11-2026:** en una base **nueva y aislada** se constató `usuario` con una sola fila `ADMIN`, `activo=1`, vínculo con rol `admin` y longitud 60 de la columna de hash. El inicializador no duplicó cuentas al repetirse. La verificación integral `SHOW CREATE TABLE` sigue pendiente; estos SELECT **no** sustituyen una auditoría DDL ni un login contra esa base. Ver [REGISTRO_BOOTSTRAP_Y_LOGIN_DEMO_20261116.md](REGISTRO_BOOTSTRAP_Y_LOGIN_DEMO_20261116.md).
+
 > **Actualización de evidencia — 12-11-2026, fase 5:** gestión principal de `rol_usuario` comprobada por **15/15** pruebas aisladas y HTTP real: asignación `201`, ficha `200`, duplicado `409`, retiro `200`, ficha posterior `404`. Un usuario `consulta` real obtuvo GET V1 `200`, POST V1 `403` y GET administrativo `403`; tras retirar el rol, **el mismo JWT** pasó a GET `403`. SQL confirmó usuario sin rol aún activo y `ADMIN` con `admin`. La protección del último administrador **queda pendiente de prueba final solo en base descartable**, sin arriesgar el volumen local. Ver [REGISTRO_FASE5_ROL_USUARIO.md](REGISTRO_FASE5_ROL_USUARIO.md).
 
 > **Fuente comprobada:** archivo `init(4).sql` recibido para esta revisión, sección «MÓDULO DE GESTIÓN DE USUARIOS», DDL de `rol`, `usuario` y `rol_usuario`. Esta sección describe el **SQL compartido**; su correspondencia con una base MariaDB ya inicializada se debe verificar con `SHOW CREATE TABLE`, dado que Docker no vuelve a ejecutar `init.sql` en un volumen existente. No se modifica el esquema heredado.
@@ -99,7 +101,7 @@ VALUES
 
 **Nota:** el bloque anterior es el que mostró `git diff` del estudiante. La actualización del encabezado numerado del SQL aún debe verificarse. La sentencia se ejecuta al inicializar un volumen nuevo; para uno existente, el script CLI PHP ya permite asegurar roles por nombre sin borrar el volumen.
 
-Variables de entorno **propuestas para un proceso de inicialización temporal**: `ADMIN_INICIAL_USERNAME`, `ADMIN_INICIAL_EMAIL` y `ADMIN_INICIAL_PASSWORD`. No forman parte de la tabla; nunca almacenar o enviar la contraseña en la respuesta de la API. Los ID de la asignación se obtienen de INSERT/SELECT reales.
+Variables de entorno **implementadas para el proceso de inicialización CLI**: `ADMIN_INICIAL_USERNAME`, `ADMIN_INICIAL_EMAIL` y `ADMIN_INICIAL_PASSWORD`. El `docker-compose.yml` local ejecuta `inicializar-admin` tras MariaDB saludable. Estas variables no forman parte de ninguna tabla; nunca almacenar o enviar la contraseña en una respuesta de la API. Los ID de la asignación se obtienen de INSERT/SELECT reales.
 
 ## 6. JWT y autorización (no son columnas SQL)
 
@@ -128,7 +130,7 @@ SELECT COUNT(*) AS total_asignaciones FROM rol_usuario;
 
 Estas consultas **no alteran datos**. No ejecutar `docker compose down -v` en un proyecto con información que deba conservarse: elimina los volúmenes y puede borrar la base de datos persistida.
 
-**Estado:** DDL del `init.sql` identificado; C3 y C5 aprobadas. La creación inicial ya se ejecutó manualmente y se observaron los roles y el admin en MariaDB; falta repetición, instalación limpia y cotejo completo de estructura por `SHOW CREATE TABLE`. Siguen pendientes algunos detalles técnicos del frontend/contratos, la regresión y la comprobación DDL completa de la base instalada.
+**Estado:** DDL del `init.sql` identificado; C3 y C5 cuentan con acuerdo. Se observó el admin en la base habitual, se creó sobre un volumen aislado nuevo y se repitió el inicializador sin duplicar cuentas. Faltan escenarios negativos, prueba de login de la instancia aislada y cotejo completo de estructura mediante `SHOW CREATE TABLE`. Siguen pendientes la integración del catálogo `rol`, la regresión y la verificación completa de la base instalada.
 
 ## 8. Matriz de invariantes del SQL para los CRUD administrativos
 
