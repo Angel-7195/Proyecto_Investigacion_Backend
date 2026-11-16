@@ -1,5 +1,7 @@
 # Registro de decisión — roles iniciales y primer administrador (v3)
 
+> **Seguimiento de la decisión — 16-11-2026:** la propuesta original ya fue implementada en el entorno Docker local con servicio `inicializar-admin` y se probó en un volumen **nuevo y aislado** y al repetirla. En el volumen habitual detectó un admin activo y no lo duplicó. La contraseña inicial sigue llegando desde variables de entorno; **no** se incrusta en SQL ni código. Pendientes: escenarios negativos, auditoría de secretos y adaptación del procedimiento CLI al hosting sin Docker. Evidencias en [REGISTRO_BOOTSTRAP_Y_LOGIN_DEMO_20261116.md](REGISTRO_BOOTSTRAP_Y_LOGIN_DEMO_20261116.md).
+
 **Fecha:** 9 de noviembre de 2026.  
 **Estado:** acuerdo de diseño documentado con el estudiante; **sin implementación, sin ejecución de SQL y sin validación del profesor/equipo completo**.  
 **Fuentes:** `init(4).sql`, `0_METODOLOGIA.md`, `modulo_investigacion.md`, Spec Kit v2 y los documentos del Spec Kit v3.
@@ -15,7 +17,7 @@ La v3 exige `POST /api/login`, control de roles y CRUD de usuarios/roles exclusi
 1. **Solo datos públicos en SQL:** añadir a `db/init.sql` dos registros `rol.nombre`: `admin` y `consulta`, con descripción. No fijar IDs ni incluir hash/contraseña. Anotar el cambio de semillas en la cabecera con un nuevo número.
 2. **Primer administrador en PHP:** crear un comando local y exclusivo de consola (`api_investigacion/scripts/inicializar_admin.php`), no expuesto por HTTP. Leer `ADMIN_INICIAL_USERNAME`, `ADMIN_INICIAL_EMAIL`, `ADMIN_INICIAL_PASSWORD` de un entorno no versionado; validar y crear el hash con `password_hash(PASSWORD_DEFAULT)`. Crear usuario y vínculo `rol_usuario` de manera transaccional usando los IDs reales de la base.
 3. **Repetición segura:** comprobar antes si ya existe un administrador válido; no crear otro ni sobrescribir su contraseña. Ante identificadores existentes incompatibles o cuentas administrativas inactivas, detenerse en lugar de asignar privilegios por sorpresa.
-4. **Compatibilidad Docker:** para volumen nuevo, los roles se siembran desde SQL; para volumen existente (donde `init.sql` ya no se ejecuta), la inicialización debe asegurar los roles faltantes por nombre **sin destruir datos**. La implementación **actual** es por ejecución manual `docker compose run --rm --no-deps ...`; la eventual integración en el arranque normal del compose continúa pendiente de diseño/prueba.
+4. **Compatibilidad Docker:** para volumen nuevo, los roles se siembran desde SQL; para volumen existente (donde `init.sql` ya no se ejecuta), la inicialización asegura los roles por nombre **sin destruir datos**. **Implementado y observado el 15-11:** `docker-compose.yml` incorpora `inicializar-admin`, dependiente de MariaDB saludable, y la API espera su finalización; se verificó tanto volumen nuevo aislado como volumen habitual. El comando CLI manual sigue disponible para mantenimiento.
 5. **Sin puerta trasera:** no agregar registro público, no registrar credenciales en logs, no guardar el secreto inicial en Git y retirar los valores temporales del entorno después del alta. Un primer arranque sin secreto configurado debe fallar cerrado, nunca crear un usuario de contraseña conocida.
 
 ## Fuera de esta decisión
@@ -42,4 +44,6 @@ La duración JWT está acordada en **60 minutos**; se aprobaron `admin`/`consult
 | Falta contraseña inicial en primer arranque | Fallar cerrado, sin contraseña de ejemplo |
 | Volumen de MariaDB persistente | No borrar volumen ni exigir `docker compose down -v` |
 
-**Separación del acuerdo:** la decisión y el **comando manual Docker** ya tuvieron una ejecución satisfactoria reportada; **todavía no** se consideran probadas la repetición, la instalación limpia, recuperación de cuentas ambiguas ni la automatización. El equipo acordó el tratamiento de `rol_usuario.DELETE`, pero no está implementado ni probado. Esos aspectos se documentan como C5/C8/C9 antes de implementar. La inicialización no tendrá endpoint HTTP público.
+**Separación del acuerdo:** el bootstrap por CLI, la orquestación Docker, la creación en una base aislada y la repetición ya tienen evidencia local; **todavía no** se consideran probados el fallo por configuración ausente/inválida, la recuperación de cuentas ambiguas, una base V2 poblada ni el despliegue no Docker. El `rol_usuario.DELETE` sí tiene pruebas principales de backend/frontend registradas en fases 5 y 6, pero falta proteger al último administrador en una BD descartable. La inicialización no tiene endpoint HTTP público.
+
+**Complemento académico:** mostrar credenciales del administrador en la vista de login es una **decisión de demostración separada**. Se habilita por entorno en el frontend y no invalida la prohibición de guardar secretos fijos en SQL/Git. Cualquier visitante que lea la clave podrá actuar como administrador: solo admitirlo con **datos ficticios y base de demostración desechable**.

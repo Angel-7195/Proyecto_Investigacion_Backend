@@ -23,6 +23,16 @@ if (
     exit(1);
 }
 
+// Los espacios accidentales en usuario y correo no forman parte de la cuenta.
+// No modificar la contraseña: sus espacios pueden ser intencionales.
+$username = trim($username);
+$email = trim($email);
+
+if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    fwrite(STDERR, "ADMIN_INICIAL_EMAIL debe tener un formato de correo válido.\n");
+    exit(1);
+}
+
 try {
     $servicio = crearServicioInicializacionSeguridad();
     $resultado = $servicio->inicializarAdministrador($username, $email, $contrasena);

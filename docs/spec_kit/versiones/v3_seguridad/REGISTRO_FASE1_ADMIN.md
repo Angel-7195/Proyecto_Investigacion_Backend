@@ -1,5 +1,7 @@
 # Registro de ejecución — Fase 1 de seguridad v3
 
+> **Nota de seguimiento — 16-11-2026:** este registro conserva el estado original del **10-11**. Las pruebas que aquí figuran como pendientes por aquella fecha **ya se ampliaron**: bootstrap orquestado por Docker Compose, volumen nuevo aislado y repetición idempotente probados el **15-11**. Véase [REGISTRO_BOOTSTRAP_Y_LOGIN_DEMO_20261116.md](REGISTRO_BOOTSTRAP_Y_LOGIN_DEMO_20261116.md). No reinterpretar las filas históricas como el estado actual.
+
 **Fecha del registro:** 10 de noviembre de 2026.  
 **Responsable de ejecución:** Ángel David Gutiérrez Ladino.  
 **Entorno:** backend local del proyecto de Investigación, rama `feature/angel-investigacion-v3`, Windows PowerShell y Docker Compose / MariaDB 11.  
@@ -50,4 +52,14 @@ Para el profesor u otro integrante, `git clone` incluye `init.sql` y los archivo
 
 ## Actualización posterior — 12-11-2026
 
-Después de cerrar el primer registro, se implementó y probó el login: la API autenticó al administrador real mediante `password_verify()`, emitió JWT de 3600 segundos y devolvió HTTP 200; se ejecutaron **15/15** pruebas automatizadas (véase `REGISTRO_FASE2_LOGIN.md`). Posteriormente, el middleware pasó **28/28** pruebas automatizadas y respondió HTTP 401 sin JWT / HTTP 200 con JWT sobre `area_conocimiento` (véase `REGISTRO_FASE3_MIDDLEWARE.md`). Las filas de este registro que indican «login pendiente» son **históricas del cierre de fase 1**, no describen el estado actual de v3. Siguen pendientes las pruebas de idempotencia e instalación limpia del primer administrador.
+Después de cerrar el primer registro, se implementó y probó el login: la API autenticó al administrador real mediante `password_verify()`, emitió JWT de 3600 segundos y devolvió HTTP 200; se ejecutaron **15/15** pruebas automatizadas (véase `REGISTRO_FASE2_LOGIN.md`). Posteriormente, el middleware pasó **28/28** pruebas automatizadas y respondió HTTP 401 sin JWT / HTTP 200 con JWT sobre `area_conocimiento` (véase `REGISTRO_FASE3_MIDDLEWARE.md`). Las filas de este registro que indican «login pendiente» son **históricas del cierre de fase 1**, no describen el estado actual de v3.
+
+## Actualización posterior — 15-11-2026: inicialización Docker y volumen nuevo
+
+- `docker compose up -d --build` levantó MariaDB saludable, frontend y API; el nuevo servicio `inicializar-admin` terminó con `Exited (0)` y registró que ya existía un admin activo, sin duplicar la cuenta ni restablecer su contraseña.
+- En el proyecto aislado `investigacion_admin_prueba`, creado sin volumen de prueba previo, `docker compose -f docker-compose.prueba-admin.yml -p investigacion_admin_prueba up -d --build` produjo «Administrador inicial creado y rol asignado correctamente».
+- Una segunda ejecución de ese script en el mismo proyecto mostró el mensaje de cuenta existente.
+- Consulta SQL de solo lectura: `ADMIN` con `activo=1`, rol `admin`, hash con longitud **60** y `COUNT(*)` de `usuario` igual a **1**.
+- Se ejecutó `down` **sin `-v`** para el proyecto aislado y los servicios del entorno normal permanecieron arriba. El volumen de prueba no fue destruido.
+
+**Alcance:** se comprobó el primer bootstrap y la repetición, pero aún faltan escenarios de error, comparación de hashes antes/después, login HTTP de la **base aislada** y auditoría de secretos. No debe atribuirse a esta prueba un despliegue en AlwaysData.

@@ -1,5 +1,7 @@
 # Checklist de requisitos y cierre — v3: Investigación
 
+> **Actualización de pruebas locales — 16-11-2026:** inicializador automático Docker con MariaDB saludable, cuenta única de ADMIN en volumen nuevo aislado y reintento sin duplicados; en el volumen habitual el inicializador finalizó sin modificar el admin existente. Se comprobó la tarjeta demo del frontend, sintaxis PHP y acceso real cuando coincidían las credenciales. Ver [REGISTRO_BOOTSTRAP_Y_LOGIN_DEMO_20261116.md](REGISTRO_BOOTSTRAP_Y_LOGIN_DEMO_20261116.md). **El checklist de aceptación y las firmas humanas siguen abiertos.**
+
 > **Evidencia nueva — 13-11-2026:** pruebas manuales de frontend de `usuario` y `rol_usuario`, control de menú, restricción directa, revocación de sesión con rol retirado, SQL del único administrador activo y recuperación de acceso al restaurar `consulta`. Véase [REGISTRO_FASE6_FRONTEND.md](REGISTRO_FASE6_FRONTEND.md). **No se firman compuertas, ni se aprueba la regresión completa, ni se considera terminada la V3 por este registro.**
 
 > **Actualización de evidencia — 12-11-2026, fase 5:** gestión principal de `rol_usuario` comprobada por **15/15** pruebas aisladas y HTTP real: asignación `201`, ficha `200`, duplicado `409`, retiro `200`, ficha posterior `404`. Un usuario `consulta` real obtuvo GET V1 `200`, POST V1 `403` y GET administrativo `403`; tras retirar el rol, **el mismo JWT** pasó a GET `403`. SQL confirmó usuario sin rol aún activo y `ADMIN` con `admin`. La protección del último administrador **queda pendiente de prueba final solo en base descartable**, sin arriesgar el volumen local. Ver [REGISTRO_FASE5_ROL_USUARIO.md](REGISTRO_FASE5_ROL_USUARIO.md).
@@ -15,13 +17,13 @@ Esta parte adapta `9_checklist.md` del ejemplo `v3_segundo_motor`: valida **docu
 ## A. Calidad de la especificación (COMPUERTA 3)
 
 - [ ] Cada requisito de `2_spec.md` es único, medible y permite una prueba concreta.
-- [ ] C1–C12 están resueltas o verificadas por escrito y se reflejan en `3_plan.md`, `5_data_model.md`, `6_contracts.md`.
+- [ ] C1–C13 están resueltas o verificadas por escrito y se reflejan en `3_plan.md`, `5_data_model.md`, `6_contracts.md` (C13 afecta la interfaz, no el esquema).
 - [ ] La política de permisos para las 16 rutas y los 3 recursos administrativos está aprobada y sin huecos.
 - [ ] Los nombres y tipos del script `init(4).sql` están documentados en `5_data_model.md`.
 - [ ] Está previsto cotejar el esquema de la BD en ejecución con ese script antes de implementar.
 - [ ] El significado exacto de logout no induce a creer que `session_destroy()` revoca un JWT válido.
-- [ ] La decisión de **sembrar roles y crear el primer admin por PHP solo CLI** está registrada coherentemente. **La primera ejecución manual sí se realizó**; faltan las pruebas de repetición, instalación nueva y arranque automático.
-- [ ] El procedimiento del primer admin es seguro, idempotente y verificable; no existen credenciales fijas ni una ruta HTTP pública de bootstrap.
+- [ ] La decisión de **sembrar roles y crear el primer admin por PHP solo CLI** está registrada coherentemente. **La ejecución manual, repetición, volumen nuevo aislado y arranque automático Docker ya fueron observados**; faltan auditorías de errores y revisión del equipo.
+- [ ] El procedimiento del primer admin es seguro, idempotente y verificable; no existen secretos fijos en el código ni una ruta HTTP pública de bootstrap. **La demo opcional puede mostrar credenciales deliberadamente, solo con datos ficticios y configuración privada.**
 - [ ] Se definieron los escenarios de prueba para roles existentes, cuenta administrativa previa/inactiva y un usuario del mismo nombre sin rol; su ejecución se reserva para la compuerta de cierre.
 - [ ] Se mantiene el alcance de v4 fuera de esta versión.
 - [ ] La constitución del equipo está vigente y es compatible con el plan.
@@ -41,7 +43,8 @@ Esta parte adapta `9_checklist.md` del ejemplo `v3_segundo_motor`: valida **docu
 
 | Tema | Evidencia comunicada | Qué NO demuestra aún |
 |---|---|---|
-| Bootstrap de `admin` y `consulta` | Alta CLI y SELECT en phpMyAdmin | Idempotencia y base nueva |
+| Bootstrap de `admin` y `consulta` | Alta CLI, Docker automático, volumen nuevo aislado y segundo intento, JOIN/COUNT en MariaDB | Fallo seguro ante configuración inválida, base V2 poblada y adaptación a AlwaysData |
+| Tarjeta de demostración | Login PHP sin error de sintaxis, aviso visible y acceso ADMIN cuando las credenciales coincidieron con DB | Modo oculto, entorno incompleto, auditoría de Git y uso público seguro |
 | Login / JWT | 15/15 suite, HTTP 200 de `ADMIN`, JWT de 3600 s | Todos los casos HTTP de errores y seguridad de secretos en Git |
 | Middleware / roles | 28/28 suite; 401 sin Bearer y 200 con Bearer en `/api/area_conocimiento` | Matriz real de 16 CRUD y 403 con usuario real `consulta` |
 | CRUD `usuario` | 28/28 suite; GET/POST/PUT/PATCH/PATCH password/DELETE por HTTP; 409 duplicados; 401 sin JWT; SQL `activo=0` y formato hash `$2y$` | Rechazo del último admin en base real, `password_verify()` directo de clave nueva, 403 con `consulta`, cobertura de 422 y regresión |
@@ -90,6 +93,16 @@ Las secciones B–G **no cuentan** para aprobar anticipadamente la calidad de la
 - [ ] El primer administrador está creado con hash, asociación por ID real, transacción y datos suministrados fuera de Git.
 - [ ] Repetir el arranque no reescribe su contraseña, no crea otro administrador y no conserva el secreto de bootstrap innecesariamente.
 - [ ] Sin contraseña inicial configurada, no se crea cuenta insegura ni contraseña predecible; el mensaje de error no expone secretos.
+
+### D.3. Evidencia nueva del primer administrador (15-11-2026; no firma la sección D)
+
+- [x] `docker compose up -d --build`: MariaDB saludable, servicio `inicializar-admin` completado y API/frontend iniciados.
+- [x] Volumen habitual: mensaje de administrador existente sin duplicación ni cambio intencional de contraseña.
+- [x] Proyecto aislado sin volumen anterior: mensaje de creación exitosa, `ADMIN` activo con rol `admin`, contraseña almacenada en columna de hash de longitud 60 y **una sola** fila de usuario.
+- [x] Repetición aislada con `run --rm --no-deps`: mensaje de administrador existente; no creó otra fila.
+- [x] `down` del proyecto aislado **sin `-v`**: comprobado que los servicios habituales seguían activos.
+- [ ] Probar el primer arranque sin las variables requeridas, roles/usuarios contradictorios y bases V2 con datos previos; comparar el hash antes/después sin imprimirlo.
+- [ ] Verificar el login HTTP contra la **nueva base aislada**, no solamente contra la instalación habitual.
 
 ### D.1. Resultados parciales verificados de `usuario` (no aprueban automáticamente la sección D)
 
@@ -145,6 +158,15 @@ Las secciones B–G **no cuentan** para aprobar anticipadamente la calidad de la
 
 **Evidencia y límites:** [REGISTRO_FASE6_FRONTEND.md](REGISTRO_FASE6_FRONTEND.md). Las casillas E.1 certifican solo pruebas acotadas o inspección de código, **no** la aceptación de toda la sección E.
 
+### E.2. Tarjeta de acceso académico (15-11-2026)
+
+- [x] `front_php/vistas/autenticacion/login.php` no presenta errores sintácticos según `php -l` dentro de Docker.
+- [x] Aviso de «Acceso de demostración» visible cuando `LOGIN_DEMO_ENABLED=1` con usuario y clave informados por el entorno.
+- [x] Credenciales correspondientes a una cuenta administrativa real permiten iniciar sesión y ver el panel.
+- [x] Se observó un rechazo de login al mostrar un nombre que no existía en la BD: el aviso no crea ni modifica cuentas.
+- [ ] Comprobar tarjeta oculta con `LOGIN_DEMO_ENABLED=0` o datos incompletos y revisar que ninguna credencial haya sido commiteada.
+- [ ] Validar en un entorno **aislado, sin información real** el acceso administrativo público previsto para la evaluación académica.
+
 ## F. Regresión v1-v2
 
 - [ ] Siguen disponibles los seis CRUD de v1 y los diez de v2, con sus distintos métodos permitidos.
@@ -164,6 +186,7 @@ Las secciones B–G **no cuentan** para aprobar anticipadamente la calidad de la
 
 
 - [ ] `7_quickstart.md` tiene URLs, puertos, nombres de servicios y comandos ejecutados realmente.
+- [ ] La documentación distingue el arranque automático Docker de la ejecución CLI manual necesaria en hosting sin Docker, y el modo demo expone credenciales **solo** en una instalación desechable.
 - [ ] Hay evidencias de todas las pruebas principales y no contienen credenciales ni tokens completos.
 - [ ] El mapa de versiones coincide con el alcance autorizado para v1-v4.
 - [ ] `8_tasks.md` refleja los trabajos realizados y responsables reales.

@@ -1,0 +1,9 @@
+# Complemento opcional para mostrar un usuario ADMIN de demostración.
+# Se combina con docker-compose.yml sin reemplazar los servicios existentes.
+# Nunca actives esta función con la contraseña de un administrador real.
+services:
+  front-php:
+    environment:
+      LOGIN_DEMO_ENABLED: ${LOGIN_DEMO_ENABLED:-0}
+      LOGIN_DEMO_ADMIN_USERNAME: ${LOGIN_DEMO_ADMIN_USERNAME:-}
+      LOGIN_DEMO_ADMIN_PASSWORD: ${LOGIN_DEMO_ADMIN_PASSWORD:-}

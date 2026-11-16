@@ -1,5 +1,7 @@
 # Tareas — v3: Seguridad (Investigación)
 
+> **Actualización — 16-11-2026:** el servicio `inicializar-admin` de Docker Compose ya fue probado con volumen habitual y base nueva aislada; el segundo intento no duplicó el usuario. También se agregó una tarjeta demo condicional al login y se comprobó acceso web con la cuenta real. Los resultados se separan de las pruebas aún pendientes en [REGISTRO_BOOTSTRAP_Y_LOGIN_DEMO_20261116.md](REGISTRO_BOOTSTRAP_Y_LOGIN_DEMO_20261116.md). No se marca la V3 completa.
+
 > **Actualización — 13-11-2026, fase 6 frontend (Ángel):** navegador y MariaDB confirmaron altas/edición/contraseña/baja lógica de usuarios, asignación/duplicado/retiro/restauración de roles, menú `consulta`, denegación de ruta administrativa y revocación de acceso con la sesión ya abierta. `ADMIN` es el único administrador activo según SQL; el frontend lo muestra protegido, **sin ensayar su eliminación real**. Se restauró el rol de Mariana después de las pruebas. Véase [REGISTRO_FASE6_FRONTEND.md](REGISTRO_FASE6_FRONTEND.md). Este registro **no cierra** CRUD `rol`, regresión, SDD ni la V3 global.
 
 > **Actualización de evidencia — 12-11-2026, fase 5:** gestión principal de `rol_usuario` comprobada por **15/15** pruebas aisladas y HTTP real: asignación `201`, ficha `200`, duplicado `409`, retiro `200`, ficha posterior `404`. Un usuario `consulta` real obtuvo GET V1 `200`, POST V1 `403` y GET administrativo `403`; tras retirar el rol, **el mismo JWT** pasó a GET `403`. SQL confirmó usuario sin rol aún activo y `ADMIN` con `admin`. La protección del último administrador **queda pendiente de prueba final solo en base descartable**, sin arriesgar el volumen local. Ver [REGISTRO_FASE5_ROL_USUARIO.md](REGISTRO_FASE5_ROL_USUARIO.md).
@@ -15,8 +17,8 @@
 - [ ] Identificar diferencias entre mapa de versiones antiguo y metodología; actualizar mapa del equipo con aprobación.
 - [x] Examinar `init(4).sql` y registrar su DDL de seguridad en `5_data_model.md`. [ ] Contrastar el resultado con `SHOW CREATE TABLE` en MariaDB activa.
 - [x] Registrar el acuerdo para roles semilla `admin` y `consulta`, y primer administrador mediante script PHP solo CLI (9-11-2026; diseño, no prueba).
-- [x] Confirmación del estudiante: equipo aprobó matriz admin/consulta, roles múltiples, bootstrap manual, logout en sesión PHP y JWT de 60 minutos. [ ] Precisar diseño técnico de cookies/CSRF, claims opcionales y automatización Docker.
-- [ ] Resolver C2–C12 de `2_spec.md` y comprobar en ejecución la concordancia del esquema; **C1 está resuelta para el SQL fuente**.
+- [x] Confirmación del estudiante: equipo aprobó matriz admin/consulta, roles múltiples, bootstrap por CLI, logout en sesión PHP y JWT de 60 minutos. [x] Automatización del bootstrap mediante Docker Compose comprobada localmente. [ ] Precisar diseño técnico de cookies/CSRF, claims opcionales y despliegue no Docker.
+- [ ] Resolver o validar C2–C13 de `2_spec.md` y comprobar en ejecución la concordancia del esquema; **C1 está resuelta para el SQL fuente**.
 - [ ] Validar `3_plan.md` contra la constitución vigente del equipo.
 - [ ] Revisar la lista de requisitos de `9_checklist.md` entre compañeros.
 - [ ] Ajustar contratos con los campos, claves y rutas definitivas.
@@ -29,20 +31,21 @@
 - [ ] Mantener `.env` en `.gitignore` y ejemplos seguros en `.env.example`.
 - [ ] Verificar que no haya secretos reales en Git ni contraseñas de usuario en SQL de prueba versionado.
 - [x] Confirmar arranque Docker con MariaDB saludable tras `docker compose up -d --build` en el volumen local. **Pendiente:** regresión de datos v1/v2 e instalación desde cero.
-- [ ] Añadir a `db/init.sql` los INSERT de roles `admin` y `consulta` y numerar/justificar el cambio de semillas en la cabecera del script; **no** incluir usuarios ni contraseñas.
-- [ ] Crear `api_investigacion/scripts/inicializar_admin.php` solo CLI; leer `ADMIN_INICIAL_USERNAME`, `ADMIN_INICIAL_EMAIL` y `ADMIN_INICIAL_PASSWORD` desde el entorno y crear el hash con `password_hash(PASSWORD_DEFAULT)`.
-- [ ] Hacer la creación de cuenta y asignación en `rol_usuario` atómica, con SQL preparado y consulta de IDs reales (nunca asumir `rol_id = 1`).
-- [ ] Garantizar idempotencia; si hay administrador existente no crear ni sobrescribir credenciales. Fallar sin privilegios ante datos preexistentes contradictorios.
-- [ ] Para volúmenes existentes, asegurar roles idempotentemente por `nombre` sin ejecutar `down -v`; probar volumen con datos v2 conservados.
-- [ ] Integrar el script con el arranque `docker compose up -d --build` tras disponibilidad de MariaDB y documentar su ejecución real; el secreto debe quedar fuera de Git, logs y capturas.
+- [x] Añadir a `db/init.sql` las semillas de `admin` y `consulta`, sin contraseñas; **observado en la base aislada**. [ ] Auditoría final de numeración e integridad del SQL con el repositorio actual.
+- [x] Crear `api_investigacion/scripts/inicializar_admin.php` solo CLI; leer las tres variables `ADMIN_INICIAL_*` desde el entorno y generar hash: **ejecución CLI y SQL observados**.
+- [x] Crear usuario y vínculo `rol_usuario` en la misma operación, usando los IDs reales de los roles; **código revisado y resultado conjunto observado**. [ ] Ensayar interrupciones transaccionales.
+- [x] Comprobar repetición con administrador existente: mensaje sin duplicación ni reseteo intencional de contraseña y `COUNT(*) = 1` en proyecto aislado. [ ] Comparar hash antes/después y probar datos contradictorios.
+- [x] Comprobar en el volumen habitual que se conserva el admin existente al levantar servicios, sin `down -v`. [ ] Ensayar una base V2 poblada con roles faltantes y comprobar datos previos.
+- [x] Integrar `inicializar-admin` al arranque `docker compose up -d --build` tras MariaDB saludable; comprobado `Exited (0)`. [ ] Revisar secreto fuera de Git, logs y capturas, y su manejo tras bootstrap.
 - [ ] Comprobar que no existen rutas HTTP de bootstrap o registro público; documentar recuperación inicial y retirada del secreto temporal tras la creación.
 
-**Verificación:** el bootstrap **manual** ya creó un admin con rol en MariaDB; sigue pendiente repetirlo, probar instalación limpia, comprobar secreto fuera de Git y validar el arranque en un solo comando.
+**Verificación:** bootstrap manual **y automático** probados; nueva base **aislada** y segunda ejecución sin duplicado acreditadas. Pendientes la auditoría de secretos, los errores de configuración, las cuentas ambiguas y la instalación/operación en AlwaysData, donde Docker Compose no orquesta el CLI.
 
 ### Evidencia parcial de Fase 1 (no marcar todo como cerrado)
 
 - **Realizado y observado:** bloque SQL con roles en `git diff`; cuatro archivos PHP sin errores de sintaxis; mensaje de alta `Administrador inicial creado y rol asignado correctamente`; SELECT de los dos roles y asociación del usuario `ADMIN` con `admin`.
-- **Sin prueba todavía:** idempotencia por segunda ejecución, instalación limpia, prueba segura del hash con `password_verify`, comportamiento sin variables, recuperación ante estado ambiguo, commit/PR, integración automática al arranque y ausencia de secretos en Git.
+- **Nueva evidencia posterior (15-11):** al repetir `inicializar-admin` se preservó el usuario; con volumen nuevo aislado apareció `ADMIN`, rol `admin`, hash de longitud 60 y solo una cuenta; Compose habitual reconoció el admin preexistente. **No equivale a verificar `password_verify` en la base aislada.**
+- **Sin prueba todavía:** configuración inicial sin variables, recuperación ante estado ambiguo, comparación criptográfica del hash antes/después, commit/PR de estos cambios, auditoría de secretos en Git y despliegue sin Docker.
 - Evidencia detallada: [REGISTRO_FASE1_ADMIN.md](REGISTRO_FASE1_ADMIN.md).
 
 ## Fase 2 — Modelos, interfaces y repositorios
@@ -148,6 +151,15 @@ Fuente: `REGISTRO_FASE5_ROL_USUARIO.md`. Las marcas corresponden solo a hechos r
 
 **Verificación parcial realizada:** pruebas desde navegador con `ADMIN` y Mariana (`consulta`), más SQL de solo lectura. **Pendientes:** API apagada, auditoría de separación, integración de `rol` y matriz completa. Evidencia: `REGISTRO_FASE6_FRONTEND.md`.
 
+### Adición de demo académica al login (15-11-2026)
+
+- [x] Mostrar tarjeta de acceso de demostración en `vistas/autenticacion/login.php` **solo si** `LOGIN_DEMO_ENABLED=1` y usuario/clave de demo están configurados.
+- [x] Pasar las variables desde `.env` privado mediante `docker-compose.demo.yml`; ejecutar frontend con ambos archivos Compose.
+- [x] Validar `php -l` sin errores y comprobar en navegador el aviso de demo.
+- [x] Comprobar que las credenciales **existentes** permiten login; una cuenta inventada no fue aceptada, por lo que el aviso no suplanta la base.
+- [ ] Verificar también el estado oculto (`LOGIN_DEMO_ENABLED=0`), datos de entorno incompletos y ausencia de secretos en el repositorio.
+- [ ] Preparar base demostrativa **desechable**, sin datos personales, antes de revelar credenciales administrativas en un entorno público.
+
 ## Fase 7 — Pruebas y regresión
 
 - [x] Prueba de revocación inmediata en navegador: Mariana permaneció con sesión abierta, ADMIN retiró su único rol y la página protegida dejó de mostrar registros; después de restaurar `consulta` e iniciar una sesión nueva, cargaron **218** áreas de conocimiento.
@@ -167,7 +179,7 @@ Fuente: `REGISTRO_FASE5_ROL_USUARIO.md`. Las marcas corresponden solo a hechos r
 - [ ] Completar `7_quickstart.md` con URLs, servicios y comandos reales.
 - [ ] Confirmar secretos ignorados por Git y no expuestos en respuestas.
 
-**Verificación:** evidencia suficiente para los 14 criterios de aceptación de `2_spec.md`.
+**Verificación:** evidencia suficiente para los criterios de aceptación 0–15 de `2_spec.md`.
 
 ## Fase 8 — Cierre y sustentación
 
@@ -190,7 +202,7 @@ No marcar tareas hechas porque exista el archivo Markdown. Las fases de arriba s
 | RF-v3-01/02/03 | Fases 2–4 — login, JWT, verificador | CA1–3: 200/401, firma, expiración, ausencia de hash |
 | RF-v3-04/05/13/14 | Fase 4 — middleware de ruta y método | CA4–6/11: GET permitido, POST/PUT/PATCH/DELETE 403, 405 heredado |
 | RF-v3-06/07/08 | Fase 5 — recursos admin | CA7–8: CRUD, borrado lógico y tratamiento del puente C8 |
-| RF-v3-09/10/11 | Fase 6 — sesión y pantallas | CA9–10/12: Bearer, menú, logout y API caída |
+| RF-v3-09/10/11/15 | Fase 6 — sesión, pantallas y demo opcional | CA9–10/12/15: Bearer, menú, logout, API caída y tarjeta demo configurable |
 | RF-v3-12 | Fase 7 — regresión | CA11: los 16 recursos según contratos v1/v2 |
 | RNF-v3-02/03/04 | Fases 1/3/7 — seguridad | CA2/3/13: secreto fuera de Git, hashes, tokens inválidos |
 | Metodología SDD | Fases 0/8 — compuertas y cierre | CA14: checklist firmado, PR revisado, tag v3 |

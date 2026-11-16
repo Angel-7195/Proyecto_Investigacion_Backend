@@ -19,6 +19,25 @@ services:
       timeout: 5s
       retries: 10
 
+  # Ejecuta el bootstrap antes de habilitar la API.
+  # Es idempotente: si ya existe un administrador activo, no lo modifica.
+  inicializar-admin:
+    build: ./api_investigacion
+    volumes:
+      - ./api_investigacion:/app
+    restart: "no"
+    command: ["php", "/app/scripts/inicializar_admin.php"]
+    environment:
+      DB_DSN: mysql:host=mariadb;port=3306;dbname=${MARIADB_DATABASE}
+      DB_USUARIO: ${MARIADB_USER}
+      DB_CLAVE: ${MARIADB_PASSWORD}
+      ADMIN_INICIAL_USERNAME: ${ADMIN_INICIAL_USERNAME:?Configura_ADMIN_INICIAL_USERNAME_en_.env}
+      ADMIN_INICIAL_EMAIL: ${ADMIN_INICIAL_EMAIL:?Configura_ADMIN_INICIAL_EMAIL_en_.env}
+      ADMIN_INICIAL_PASSWORD: ${ADMIN_INICIAL_PASSWORD:?Configura_ADMIN_INICIAL_PASSWORD_en_.env}
+    depends_on:
+      mariadb:
+        condition: service_healthy
+
   api-investigacion:
     build: ./api_investigacion
     volumes:
@@ -32,8 +51,8 @@ services:
       DB_CLAVE: ${MARIADB_PASSWORD}
       JWT_SECRET: ${JWT_SECRET:?Debes_configurar_JWT_SECRET_en_.env}
     depends_on:
-      mariadb:
-        condition: service_healthy
+      inicializar-admin:
+        condition: service_completed_successfully
 
   front-php:
     build: ${FRONT_PATH}
