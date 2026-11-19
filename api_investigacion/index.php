@@ -210,49 +210,43 @@ if (preg_match('#^/api/usuario/([1-9]\d*)$#', $ruta, $usuarioCoincide)) {
 }
 
 
+
 // ======================================================================
-// CRUD DE ROLES — V3 (SOLO ADMIN; middleware ejecutado anteriormente)
+// ROLES — V3 (SOLO CONSULTA; middleware ejecutado anteriormente)
 // ======================================================================
 
-// Colección: GET y POST sobre /api/rol.
+// Colección: GET /api/rol.
 if ($ruta === '/api/rol') {
-    if (!in_array($metodo, ['GET', 'POST'], true)) {
+
+    if ($metodo !== 'GET') {
+        header('Allow: GET');
         responderNoPermitido();
         return;
     }
 
     require_once __DIR__ . '/servicios/ensamblador.php';
-    $controladorRol = crearControladorRol();
 
-    if ($metodo === 'GET') {
-        $controladorRol->listar();
-    } else {
-        $controladorRol->crear($cuerpo);
-    }
+    $controladorRol = crearControladorRol();
+    $controladorRol->listar();
 
     return;
 }
 
-// Registro individual: /api/rol/{id}.
+// Registro individual: GET /api/rol/{id}.
 if (preg_match('#^/api/rol/([1-9]\d*)$#', $ruta, $rolCoincide)) {
-    if (!in_array($metodo, ['GET', 'PUT', 'PATCH', 'DELETE'], true)) {
+
+    if ($metodo !== 'GET') {
+        header('Allow: GET');
         responderNoPermitido();
         return;
     }
 
     require_once __DIR__ . '/servicios/ensamblador.php';
+
     $controladorRol = crearControladorRol();
     $rolId = (int) $rolCoincide[1];
 
-    if ($metodo === 'GET') {
-        $controladorRol->obtener($rolId);
-    } elseif ($metodo === 'PUT') {
-        $controladorRol->reemplazar($rolId, $cuerpo);
-    } elseif ($metodo === 'PATCH') {
-        $controladorRol->actualizar($rolId, $cuerpo);
-    } elseif ($metodo === 'DELETE') {
-        $controladorRol->retirar($rolId);
-    }
+    $controladorRol->obtener($rolId);
 
     return;
 }

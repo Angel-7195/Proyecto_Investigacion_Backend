@@ -11,109 +11,98 @@ require_once __DIR__ . '/../controladores/ControladorRol.php';
 
 final class RepositorioRolEnMemoria implements IRepositorioRol
 {
-    private array $roles = [];
-    private array $retirados = [];
+    public function __construct(private array $roles = [])
+    {
+    }
 
     public function listar(): array
     {
-        return array_values(array_diff_key($this->roles, $this->retirados));
+        return array_values($this->roles);
     }
 
     public function obtener(int $id): ?Rol
     {
-        return isset($this->retirados[$id]) ? null : ($this->roles[$id] ?? null);
-    }
-
-    public function crear(string $nombre, ?string $descripcion): Rol
-    {
-        $id = count($this->roles) + 1;
-        $this->comprobarDuplicado($id, $nombre);
-        return $this->roles[$id] = new Rol($id, $nombre, $descripcion);
-    }
-
-    public function actualizar(int $id, array $cambios): ?Rol
-    {
-        $rol = $this->obtener($id);
-        if ($rol === null) {
-            return null;
-        }
-
-        $datos = $cambios + $rol->aArray();
-        $this->comprobarDuplicado($id, $datos['nombre']);
-        return $this->roles[$id] = new Rol($id, $datos['nombre'], $datos['descripcion']);
-    }
-
-    public function retirar(int $id): bool
-    {
-        if ($this->obtener($id) === null) {
-            return false;
-        }
-        return $this->retirados[$id] = true;
-    }
-
-    private function comprobarDuplicado(int $id, string $nombre): void
-    {
-        foreach ($this->roles as $rol) {
-            if ($rol->id !== $id && $rol->nombre === $nombre) {
-                throw ExcepcionRol::conflicto('Ya existe un rol con ese nombre.');
-            }
-        }
+        return $this->roles[$id] ?? null;
     }
 }
 
 function comprobarRol(string $caso, mixed $esperado, mixed $real): void
 {
     if ($esperado !== $real) {
-        throw new RuntimeException($caso . ': esperado ' . var_export($esperado, true)
-            . ', obtenido ' . var_export($real, true));
+        throw new RuntimeException(
+            $caso . ': esperado ' . var_export($esperado, true)
+            . ', obtenido ' . var_export($real, true)
+        );
     }
 }
 
 function probarRespuestaRol(callable $operacion, int $estado): array
 {
     ob_start();
+
     try {
         $operacion();
         $json = ob_get_contents();
     } finally {
         ob_end_clean();
     }
+
     comprobarRol('estado HTTP', $estado, http_response_code());
+
     if ($estado === 204) {
         comprobarRol('cuerpo vacío en 204', '', $json);
         return [];
     }
+
     $respuesta = json_decode($json, true, flags: JSON_THROW_ON_ERROR);
+
     comprobarRol('estado JSON', $estado, $respuesta['estado']);
+
     return $respuesta['datos'] ?? [];
 }
 
-$controlador = new ControladorRol(new ServicioRol(new RepositorioRolEnMemoria()));
-probarRespuestaRol($controlador->listar(...), 204);
-$rol = probarRespuestaRol(fn () => $controlador->crear(['nombre' => ' edición ']), 201);
-$id = $rol['id'];
-comprobarRol('creación y forma pública', ['id' => $id, 'nombre' => 'edición', 'descripcion' => null], $rol);
-comprobarRol('listado', [$rol], probarRespuestaRol($controlador->listar(...), 200));
-comprobarRol('lectura', $rol, probarRespuestaRol(fn () => $controlador->obtener($id), 200));
-probarRespuestaRol(fn () => $controlador->crear(['nombre' => 'edición']), 409);
-$otro = probarRespuestaRol(fn () => $controlador->crear(['nombre' => str_repeat('á', 100)]), 201);
-probarRespuestaRol(fn () => $controlador->crear(['nombre' => str_repeat('á', 101)]), 422);
-probarRespuestaRol(fn () => $controlador->crear(['nombre' => ' ']), 422);
-probarRespuestaRol(fn () => $controlador->crear(['nombre' => 42]), 422);
-probarRespuestaRol(fn () => $controlador->crear(['nombre' => 'privado', 'activo' => 0]), 422);
-probarRespuestaRol(fn () => $controlador->crear(['nombre' => 'privado', 'descripcion' => []]), 422);
-probarRespuestaRol(fn () => $controlador->actualizar($id, []), 422);
-probarRespuestaRol(fn () => $controlador->actualizar($id, ['nombre' => $otro['nombre']]), 409);
-$editado = probarRespuestaRol(fn () => $controlador->actualizar($id, ['descripcion' => 'Detalle']), 200);
-comprobarRol('PATCH conserva nombre', 'edición', $editado['nombre']);
-comprobarRol('PATCH actualiza descripción', 'Detalle', $editado['descripcion']);
-$reemplazado = probarRespuestaRol(fn () => $controlador->reemplazar($id, ['nombre' => 'nuevo']), 200);
-comprobarRol('PUT repone descripción opcional a null', null, $reemplazado['descripcion']);
-probarRespuestaRol(fn () => $controlador->reemplazar($id, ['descripcion' => 'sin nombre']), 422);
-probarRespuestaRol(fn () => $controlador->retirar($id), 200);
-comprobarRol('listado sin retirados', [$otro], probarRespuestaRol($controlador->listar(...), 200));
-probarRespuestaRol(fn () => $controlador->obtener($id), 404);
-probarRespuestaRol(fn () => $controlador->retirar($id), 404);
-probarRespuestaRol(fn () => $controlador->actualizar($id, ['nombre' => 'otro']), 404);
-probarRespuestaRol(fn () => $controlador->crear(['nombre' => 'nuevo']), 409);
-echo "22 escenarios aislados de rol aprobados.\n";
+// Prueba de listado vacío.
+$controladorVacio = new ControladorRol(
+    new ServicioRol(new RepositorioRolEnMemoria())
+);
+
+probarRespuestaRol($controladorVacio->listar(...), 204);
+
+// Repositorio con los dos roles permitidos.
+$roles = [
+    1 => new Rol(1, 'admin', null),
+    2 => new Rol(2, 'consulta', null),
+];
+
+$controlador = new ControladorRol(
+    new ServicioRol(new RepositorioRolEnMemoria($roles))
+);
+
+// Prueba del listado.
+$lista = probarRespuestaRol($controlador->listar(...), 200);
+
+comprobarRol('cantidad de roles', 2, count($lista));
+
+comprobarRol(
+    'primer rol',
+    ['id' => 1, 'nombre' => 'admin', 'descripcion' => null],
+    $lista[0]
+);
+
+comprobarRol(
+    'segundo rol',
+    ['id' => 2, 'nombre' => 'consulta', 'descripcion' => null],
+    $lista[1]
+);
+
+// Prueba de consulta individual.
+probarRespuestaRol(fn () => $controlador->obtener(1), 200);
+probarRespuestaRol(fn () => $controlador->obtener(2), 200);
+
+// Prueba de identificador inexistente.
+probarRespuestaRol(fn () => $controlador->obtener(99), 404);
+
+// Prueba de identificador inválido.
+probarRespuestaRol(fn () => $controlador->obtener(0), 422);
+
+echo "6 escenarios aislados de rol aprobados.\n";

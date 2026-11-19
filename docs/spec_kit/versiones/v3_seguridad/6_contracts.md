@@ -1,5 +1,7 @@
 # Contratos de la API — v3: autenticación y administración
 
+> **Actualización contractual — 19-11-2026:** `rol` queda como catálogo fijo de solo lectura. Para `admin`, solo están permitidos `GET /api/rol` y `GET /api/rol/{id}`; `POST`, `PUT`, `PATCH` y `DELETE` responden `405` con `Allow: GET`. `consulta` no tiene acceso al recurso administrativo y debe recibir `403`. La pantalla web `/roles` muestra los registros sin acciones de escritura. `rol_usuario` no cambia. Evidencia local: [REGISTRO_FASE7_CATALOGO_ROL_20261119.md](REGISTRO_FASE7_CATALOGO_ROL_20261119.md).
+
 > **Actualización de operación — 16-11-2026:** la inicialización del admin continúa siendo **CLI, sin endpoint HTTP**, pero ahora se ejecuta automáticamente mediante el servicio Docker `inicializar-admin` tras el estado saludable de MariaDB. Se observó creación sobre base nueva aislada y repetición sin duplicados ni cambio de clave, además del reconocimiento del administrador en el volumen habitual. La vista `/login` admite credenciales de demostración opcionales suministradas por entorno; **no altera** el contrato `POST /api/login` ni los permisos de la API. Véase [REGISTRO_BOOTSTRAP_Y_LOGIN_DEMO_20261116.md](REGISTRO_BOOTSTRAP_Y_LOGIN_DEMO_20261116.md).
 
 > **Actualización de evidencia — 12-11-2026, fase 5:** gestión principal de `rol_usuario` comprobada por **15/15** pruebas aisladas y HTTP real: asignación `201`, ficha `200`, duplicado `409`, retiro `200`, ficha posterior `404`. Un usuario `consulta` real obtuvo GET V1 `200`, POST V1 `403` y GET administrativo `403`; tras retirar el rol, **el mismo JWT** pasó a GET `403`. SQL confirmó usuario sin rol aún activo y `ADMIN` con `admin`. La protección del último administrador **queda pendiente de prueba final solo en base descartable**, sin arriesgar el volumen local. Ver [REGISTRO_FASE5_ROL_USUARIO.md](REGISTRO_FASE5_ROL_USUARIO.md).
@@ -153,27 +155,49 @@ Ejemplo de solicitud POST (**solo ilustrativo, no copiar contraseñas de prueba 
 }
 ```
 
-## §4. CRUD de `rol` — **solo admin**
+## §4. Catálogo fijo de `rol` — **solo admin, solo lectura**
+
+El catálogo de seguridad de la v3 contiene únicamente los perfiles `admin` y `consulta`. Sus IDs los genera MariaDB y no se fijan en el contrato. El campo `activo` se conserva por el DDL y la consulta normal devuelve solo roles activos; no es un campo editable.
 
 | Ruta específica | Operación | Respuestas esperadas (además de 401/403/500) |
 |---|---|---|
-| `GET /api/rol` | Listar activos | `200`, `204` |
-| `GET /api/rol/{id}` | Obtener activo | `200`, `404` |
-| `POST /api/rol` | Crear | `201`, `409`, `422` |
-| `PUT /api/rol/{id}` | Reemplazar | `200`, `404`, `409`, `422` |
-| `PATCH /api/rol/{id}` | Actualizar parcialmente | `200`, `404`, `409`, `422`; `400` solo con regla definida |
-| `DELETE /api/rol/{id}` | Retirar lógicamente | `200`, `404`, `409` si existe restricción aprobada |
+| `GET /api/rol` | Listar roles activos | `200`, `204` |
+| `GET /api/rol/{id}` | Obtener un rol activo | `200`, `404` |
+| `POST /api/rol` | No permitido | `405`; cabecera `Allow: GET` |
+| `PUT /api/rol/{id}` | No permitido | `405`; cabecera `Allow: GET` |
+| `PATCH /api/rol/{id}` | No permitido | `405`; cabecera `Allow: GET` |
+| `DELETE /api/rol/{id}` | No permitido | `405`; cabecera `Allow: GET` |
 
-**Propuesta de POST (DDL de `rol` verificado: `nombre VARCHAR(100) UNIQUE NOT NULL`, `descripcion TEXT NULL`):**
+**Autorización:** ambas operaciones GET son exclusivas de `admin`. Una cuenta `consulta` no puede leer este recurso administrativo y debe recibir `403`. La prueba HTTP del 19-11-2026 se ejecutó con token admin; la petición GET con `consulta` no se repitió en esa actualización.
+
+**Respuesta de listado — ejemplo observado en la instancia local:**
 
 ```json
 {
-  "nombre": "consulta",
-  "descripcion": "Puede consultar los recursos autorizados"
+  "estado": 200,
+  "mensaje": "Roles encontrados.",
+  "datos": [
+    {"id": 1, "nombre": "admin", "descripcion": "Administrador del sistema"},
+    {"id": 2, "nombre": "consulta", "descripcion": "Usuario con permisos de solo lectura"}
+  ]
 }
 ```
 
-`id` es `INT AUTO_INCREMENT` y `fecha_creacion` tiene `DEFAULT CURRENT_TIMESTAMP`: no se solicitan al cliente en POST. No aceptar `activo` como entrada editable salvo decisión expresa, respetando el borrado lógico.
+**Respuesta individual — ejemplo observado para `GET /api/rol/1`:**
+
+```json
+{
+  "estado": 200,
+  "mensaje": "Rol encontrado.",
+  "datos": {
+    "id": 1,
+    "nombre": "admin",
+    "descripcion": "Administrador del sistema"
+  }
+}
+```
+
+Los IDs 1 y 2 son los de la instancia local probada, no valores fijos ni portables. `POST`, `PUT`, `PATCH` y `DELETE` no crean ni modifican filas: el router los rechaza antes de invocar el controlador de consulta.
 
 ## §5. Gestión de `rol_usuario` — **solo admin**
 
@@ -187,7 +211,7 @@ El módulo exige gestión de asignaciones. El SQL confirma que **`usuario_id` y 
 | `GET /api/rol_usuario` | Listar asignaciones vigentes | Datos solo para admin |
 | `GET /api/rol_usuario/{usuario_id}/{rol_id}` | Obtener relación | PK compuesta confirmada en SQL |
 | `POST /api/rol_usuario` | Crear relación | Comprobar ambas FK activas; duplicado → 409 |
-| `DELETE /api/rol_usuario/{usuario_id}/{rol_id}` | Retirar asignación | DELETE físico solo del vínculo; protegido contra retiro del último admin activo; usuario/rol conservan borrado lógico |
+| `DELETE /api/rol_usuario/{usuario_id}/{rol_id}` | Retirar asignación | DELETE físico solo del vínculo; protegido contra retiro del último admin activo; `usuario` conserva borrado lógico y `rol` permanece como catálogo fijo sin mutaciones por API |
 | `PUT` / `PATCH` | Actualizar asignación | **Acordado C8:** responder `405`; las dos FK constituyen la PK y no hay campos adicionales editables. |
 
 **Cuerpo usado en las pruebas del módulo:**
@@ -243,7 +267,7 @@ La documentación del curso exige **logout** y precisa que el frontend guarda el
 - [x] Equipo aprobó matriz `admin`/`consulta` y comprobar usuario/rol activos en base. [ ] Implementar y probar.
 - [x] Logout solo frontend por sesión PHP; no endpoint de revocación API en v3. [ ] Probar.
 - [ ] Códigos para FK, usuario desactivado y reglas de retiro de admin actual.
-- [x] Decisión sobre roles semilla `admin`/`consulta` y creación del administrador por PHP exclusivo CLI (sin registro público). [ ] Verificar proceso idempotente en base nueva y volumen existente sin revelar ni sobrescribir contraseñas.
+- [x] Decisión sobre roles semilla `admin`/`consulta` y creación del administrador por PHP exclusivo CLI (sin registro público). [x] Catálogo fijo `rol` definido como solo GET; métodos de escritura → 405 `Allow: GET` (evidencia local 19-11-2026). [ ] Verificar proceso idempotente en base nueva y volumen existente sin revelar ni sobrescribir contraseñas.
 - [x] Rutas y operaciones V2 levantadas de `6_contracts.md` V2. [ ] Cotejo final con código integrado y ejecución de regresión.
 
 ## §9. Cuadros de respuesta y reglas de entrada que deben congelarse antes de programar
@@ -260,13 +284,13 @@ La documentación del curso exige **logout** y precisa que el frontend guarda el
 
 Los errores nunca deben incluir el contenido del Bearer, hash de contraseña, secreto JWT ni traza SQL. Para el login inválido no revelar si falló `username` o `password`.
 
-### 9.2 Tablas administrativas: campos exactos del contrato propuesto
+### 9.2 Operaciones de escritura de las tablas administrativas
 
-| Recurso | POST de creación | PUT de reemplazo | PATCH | Campos no editables |
-|---|---|---|---|---|
-| `usuario` | `username`, `email`, `password`, `nombre_completo` opcional | `username`, `email`, `nombre_completo`; contraseña en ruta PATCH separada | Subconjunto de campos aprobados | `id`, `activo`, fechas, hash emitido desde BD |
-| `rol` | `nombre`, `descripcion` opcional | `nombre`, `descripcion` (admite NULL si se aprueba) | Subconjunto de campos aprobados | `id`, `activo`, `fecha_creacion` |
-| `rol_usuario` | `usuario_id`, `rol_id` | `405` | `405` | `id` no existe; tampoco `activo` |
+| Recurso | Escrituras admitidas | Campos no editables / restricciones |
+|---|---|---|
+| `usuario` | POST, PUT, PATCH de perfil/contraseña por rutas definidas y DELETE lógico | `id`, `activo`, fechas y hash emitido desde BD |
+| `rol` | Ninguna. POST, PUT, PATCH y DELETE responden `405` con `Allow: GET` | Catálogo fijo `admin`/`consulta`; todos los campos son de solo lectura para la API |
+| `rol_usuario` | POST y DELETE físico del vínculo; PUT/PATCH responden `405` | No existe `id` propio ni `activo`; PK compuesta `(usuario_id, rol_id)` |
 
 **Contrato de `usuario` ya implementado:** el `PUT` reemplaza el perfil sin incluir `password`; `PATCH` de perfil exige al menos un campo y devuelve `422` para `{}`; la contraseña cambia mediante `PATCH /api/usuario/{id}/password`. Este comportamiento se registró en C9 y en `REGISTRO_FASE4_USUARIO.md`. Los demás recursos nuevos deben conservar sus propios contratos; no extrapolar automáticamente los códigos entre V1/V2.
 
@@ -319,7 +343,7 @@ Los errores nunca deben incluir el contenido del Bearer, hash de contraseña, se
 
 El texto de estos ejemplos es **propuesta nueva de v3**, no un contrato ejecutado; revisarlo con el equipo para conservar mensajes consistentes en todos los controladores.
 
-### 9.4 Pantallas PHP de esta versión (rutas web verificadas en código de Ángel, 13-11-2026)
+### 9.4 Pantallas PHP de esta versión (rutas verificadas hasta 19-11-2026)
 
 Estas son rutas **del frontend PHP**, no endpoints añadidos a la API. Los formularios web envían `POST` y el cliente `front_php/cliente_api.php` realiza la petición API con el verbo correspondiente y JWT Bearer.
 
@@ -338,6 +362,6 @@ Estas son rutas **del frontend PHP**, no endpoints añadidos a la API. Los formu
 | POST `/roles-usuarios/asignar` | Admin | `POST /api/rol_usuario`. |
 | GET `/roles-usuarios/confirmar-retiro?usuario_id=N&rol_id=R` | Admin | Consulta `GET /api/rol_usuario/N/R` y confirmación, **sin DELETE**. |
 | POST `/roles-usuarios/retirar` | Admin | `DELETE /api/rol_usuario/N/R` (solo vínculo). |
-| CRUD del catálogo `rol` | Admin | **A integrar** por Miguel; no confundirlo con `/roles-usuarios`. |
+| GET `/roles` | Admin | Pantalla de catálogo fijo; consume `GET /api/rol` y no muestra botones ni formularios de escritura. |
 
-En los formularios revisados se implementaron tokens CSRF, confirmación expresa para asignar admin, validación de entradas y mensajes 401/403. El selector `rol_usuario` usa **temporalmente** ID 1 `admin` e ID 2 `consulta`, confirmados solamente en la base local; debe consultar el catálogo de roles cuando se integre el módulo de Miguel. La validación de permisos en la API continúa siendo obligatoria aun si la navegación web oculta operaciones. Las pruebas observadas, sus límites y los casos API caída pendientes están en [REGISTRO_FASE6_FRONTEND.md](REGISTRO_FASE6_FRONTEND.md).
+En los formularios revisados se implementaron tokens CSRF, confirmación expresa para asignar admin, validación de entradas y mensajes 401/403. La pantalla `/roles` quedó como catálogo de consulta y no ofrece operaciones de escritura. La interfaz `/roles-usuarios` se mantiene separada y no fue modificada en esta actualización; no se afirma aquí que su selector dinámico haya sido revisado. La validación de permisos en la API continúa siendo obligatoria aun si la navegación web oculta operaciones. Las pruebas del catálogo están en [REGISTRO_FASE7_CATALOGO_ROL_20261119.md](REGISTRO_FASE7_CATALOGO_ROL_20261119.md); el resto de las pruebas de frontend, sus límites y los casos API caída pendientes están en [REGISTRO_FASE6_FRONTEND.md](REGISTRO_FASE6_FRONTEND.md).
