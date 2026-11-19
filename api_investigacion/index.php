@@ -211,6 +211,54 @@ if (preg_match('#^/api/usuario/([1-9]\d*)$#', $ruta, $usuarioCoincide)) {
 
 
 // ======================================================================
+// CRUD DE ROLES — V3 (SOLO ADMIN; middleware ejecutado anteriormente)
+// ======================================================================
+
+// Colección: GET y POST sobre /api/rol.
+if ($ruta === '/api/rol') {
+    if (!in_array($metodo, ['GET', 'POST'], true)) {
+        responderNoPermitido();
+        return;
+    }
+
+    require_once __DIR__ . '/servicios/ensamblador.php';
+    $controladorRol = crearControladorRol();
+
+    if ($metodo === 'GET') {
+        $controladorRol->listar();
+    } else {
+        $controladorRol->crear($cuerpo);
+    }
+
+    return;
+}
+
+// Registro individual: /api/rol/{id}.
+if (preg_match('#^/api/rol/([1-9]\d*)$#', $ruta, $rolCoincide)) {
+    if (!in_array($metodo, ['GET', 'PUT', 'PATCH', 'DELETE'], true)) {
+        responderNoPermitido();
+        return;
+    }
+
+    require_once __DIR__ . '/servicios/ensamblador.php';
+    $controladorRol = crearControladorRol();
+    $rolId = (int) $rolCoincide[1];
+
+    if ($metodo === 'GET') {
+        $controladorRol->obtener($rolId);
+    } elseif ($metodo === 'PUT') {
+        $controladorRol->reemplazar($rolId, $cuerpo);
+    } elseif ($metodo === 'PATCH') {
+        $controladorRol->actualizar($rolId, $cuerpo);
+    } elseif ($metodo === 'DELETE') {
+        $controladorRol->retirar($rolId);
+    }
+
+    return;
+}
+
+
+// ======================================================================
 // ROL_USUARIO — V3; solo admin mediante middleware
 // ======================================================================
 if ($ruta === '/api/rol_usuario') {
