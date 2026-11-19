@@ -1,7 +1,6 @@
 # Proyecto de Investigación — Backend PHP
 
-**Versión actual: V3 — Seguridad y administración de usuarios (en
-desarrollo).**
+**Versión actual: V3 — Seguridad y administración de usuarios
 
 - **Backend:**
   https://github.com/Angel-7195/Proyecto_Investigacion_Backend.git
