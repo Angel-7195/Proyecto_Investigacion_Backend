@@ -195,6 +195,18 @@ require_once __DIR__ . '/Servicios_RolUsuario/IServicioRolUsuario.php';
 require_once __DIR__ . '/Servicios_RolUsuario/ServicioRolUsuario.php';
 require_once __DIR__ . '/../controladores/ControladorRolUsuario.php';
 
+// ================================================================
+// CRUD DE ROLES — V3
+// ================================================================
+
+require_once __DIR__ . '/../modelos/Rol.php';
+require_once __DIR__ . '/../excepciones/ExcepcionRol.php';
+require_once __DIR__ . '/../repositorios/Repositorios_Rol/IRepositorioRol.php';
+require_once __DIR__ . '/../repositorios/Repositorios_Rol/RepositorioRolMariaDB.php';
+require_once __DIR__ . '/Servicios_Rol/IServicioRol.php';
+require_once __DIR__ . '/Servicios_Rol/ServicioRol.php';
+require_once __DIR__ . '/../controladores/ControladorRol.php';
+
 /**
  * Construye la conexión PDO utilizando las variables de entorno.
  */
@@ -484,4 +496,15 @@ function crearControladorRolUsuario(): ControladorRolUsuario
     $repositorio = new RepositorioRolUsuarioMariaDB(crearConexion());
     $servicio = new ServicioRolUsuario($repositorio);
     return new ControladorRolUsuario($servicio);
+}
+
+/**
+ * Ensambla el CRUD de roles.
+ */
+function crearControladorRol(): ControladorRol
+{
+    $repositorio = new RepositorioRolMariaDB(crearConexion());
+    $servicio = new ServicioRol($repositorio);
+
+    return new ControladorRol($servicio);
 }

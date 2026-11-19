@@ -1,0 +1,43 @@
+# Prueba aislada de la creación inicial del administrador (V3).
+# Colocar este archivo en la RAÍZ de Proyecto_Investigacion_Backend.
+# No publica puertos ni utiliza el volumen de MariaDB del entorno habitual.
+# Ejecutar siempre con: -p investigacion_admin_prueba
+
+services:
+  mariadb:
+    image: mariadb:11
+    restart: "no"
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?Configura_MARIADB_ROOT_PASSWORD_en_.env}
+      MARIADB_DATABASE: ${MARIADB_DATABASE:?Configura_MARIADB_DATABASE_en_.env}
+      MARIADB_USER: ${MARIADB_USER:?Configura_MARIADB_USER_en_.env}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:?Configura_MARIADB_PASSWORD_en_.env}
+    volumes:
+      - datos_admin_prueba:/var/lib/mysql
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  inicializar-admin:
+    build: ./api_investigacion
+    volumes:
+      - ./api_investigacion:/app
+    restart: "no"
+    command: ["php", "/app/scripts/inicializar_admin.php"]
+    environment:
+      DB_DSN: mysql:host=mariadb;port=3306;dbname=${MARIADB_DATABASE}
+      DB_USUARIO: ${MARIADB_USER}
+      DB_CLAVE: ${MARIADB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?Configura_JWT_SECRET_en_.env}
+      ADMIN_INICIAL_USERNAME: ${ADMIN_INICIAL_USERNAME:?Configura_ADMIN_INICIAL_USERNAME_en_.env}
+      ADMIN_INICIAL_EMAIL: ${ADMIN_INICIAL_EMAIL:?Configura_ADMIN_INICIAL_EMAIL_en_.env}
+      ADMIN_INICIAL_PASSWORD: ${ADMIN_INICIAL_PASSWORD:?Configura_ADMIN_INICIAL_PASSWORD_en_.env}
+    depends_on:
+      mariadb:
+        condition: service_healthy
+
+volumes:
+  datos_admin_prueba:

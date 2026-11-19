@@ -210,6 +210,48 @@ if (preg_match('#^/api/usuario/([1-9]\d*)$#', $ruta, $usuarioCoincide)) {
 }
 
 
+
+// ======================================================================
+// ROLES — V3 (SOLO CONSULTA; middleware ejecutado anteriormente)
+// ======================================================================
+
+// Colección: GET /api/rol.
+if ($ruta === '/api/rol') {
+
+    if ($metodo !== 'GET') {
+        header('Allow: GET');
+        responderNoPermitido();
+        return;
+    }
+
+    require_once __DIR__ . '/servicios/ensamblador.php';
+
+    $controladorRol = crearControladorRol();
+    $controladorRol->listar();
+
+    return;
+}
+
+// Registro individual: GET /api/rol/{id}.
+if (preg_match('#^/api/rol/([1-9]\d*)$#', $ruta, $rolCoincide)) {
+
+    if ($metodo !== 'GET') {
+        header('Allow: GET');
+        responderNoPermitido();
+        return;
+    }
+
+    require_once __DIR__ . '/servicios/ensamblador.php';
+
+    $controladorRol = crearControladorRol();
+    $rolId = (int) $rolCoincide[1];
+
+    $controladorRol->obtener($rolId);
+
+    return;
+}
+
+
 // ======================================================================
 // ROL_USUARIO — V3; solo admin mediante middleware
 // ======================================================================

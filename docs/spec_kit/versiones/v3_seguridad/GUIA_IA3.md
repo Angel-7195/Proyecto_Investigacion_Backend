@@ -1,5 +1,7 @@
 # Guía para trabajar con IA — v3: Seguridad del módulo de Investigación
 
+> **Actualización 19-11-2026:** no implementar CRUD para `rol`. El catálogo es fijo y contiene únicamente `admin` y `consulta`; API y frontend son de solo lectura. Solo admin puede ejecutar GET de catálogo/ficha; POST/PUT/PATCH/DELETE responden `405` con `Allow: GET`. `rol_usuario` sigue siendo el recurso para asignar y retirar vínculos y no debe confundirse con el catálogo. Ver [REGISTRO_FASE7_CATALOGO_ROL_20261119.md](REGISTRO_FASE7_CATALOGO_ROL_20261119.md).
+
 > La IA apoya especificaciones, pruebas y revisión; **no decide vacíos** ni aprueba la compuerta de requisitos. Usar una instrucción por fase o archivo y comprobar el resultado antes de seguir.
 
 <!-- Registro de decisión del 9-11-2026 (v3, documentación; no implementación). -->
@@ -29,8 +31,11 @@ EN la documentación, no improvisando en PHP.
 
 Alcance de v3: POST /api/login con JWT HS256, sesiones PHP en el frontend,
 Authorization Bearer entre frontend y API, autorización central por rol antes
-del controlador, menú por permisos, logout y gestión de usuario/rol/rol_usuario
-solo admin. El rol consulta nunca puede escribir. Deben seguir funcionando
+del controlador, menú por permisos, logout, CRUD de `usuario` y gestión de
+`rol_usuario` solo admin. `rol` es un catálogo fijo de solo lectura con los
+únicos perfiles `admin` y `consulta`: solo GET de listado/ficha; POST, PUT,
+PATCH y DELETE deben responder 405 con `Allow: GET`. El rol consulta nunca
+puede escribir ni acceder a recursos administrativos. Deben seguir funcionando
 los 16 recursos anteriores con sus métodos individuales, respuestas, integridad y borrado lógico.
 
 Reglas obligatorias:
@@ -50,8 +55,7 @@ Reglas obligatorias:
   y la exigencia de cURL debe resolverse (C11-V2). NO utiliza PDO ni
   credenciales de base.
 - No implementar dashboard, consultas multitabla ni publicación: eso es v4.
-- El DDL de `usuario`, `rol`, `rol_usuario` ya está especificado en `5_data_model.md`; nada de supuestos sobre el estado real de la BD, nombres de roles, datos iniciales,
-  revocación o ruta de logout: detenerse y citar la clarificación pendiente.
+- El DDL de `usuario`, `rol`, `rol_usuario` ya está especificado en `5_data_model.md`. No modificarlo por preferencia. El catálogo de acceso solo contiene `admin` y `consulta`; no generar CRUD, altas, ediciones ni retiros de `rol`. `rol_usuario` es el único recurso para asignar o retirar vínculos. Nada de supuestos sobre el estado real de la BD, revocación o ruta de logout: detenerse y citar la clarificación pendiente.
 
 Orden: 1) revisar contratos, 2) interfaces y modelos, 3) repositorios,
 4) servicios, 5) seguridad/JWT y enrutador, 6) controladores,
@@ -75,12 +79,14 @@ No marques checklist aprobado ni afirmes pruebas ejecutadas sin evidencia.
 | `password` se serializa desde la tabla | GET listado/individual contiene hash |
 | Cliente del front hace `new PDO` | Separación de frontend/API rota |
 | Inventar un `id` o `activo` en `rol_usuario` | DDL real no contiene esa columna |
+| Añadir CRUD para `rol` o crear perfiles arbitrarios | C3/D-v3-22 fijan `admin` y `consulta` como catálogo de solo lectura; las escrituras deben dar 405 |
+| Confundir catálogo `rol` con asignaciones `rol_usuario` | El catálogo describe los dos perfiles; `rol_usuario` asigna esos perfiles a usuarios |
 | Confundir logout de sesión con revocación JWT | Una copia del token sigue válida antes de su expiración |
 | Reescribir CRUD v2 para agregar seguridad | Se rompen contratos de anteriores versiones |
 
 ## 4. Cómo comprobar lo producido
 
-1. Pedir **casos de prueba** antes de más código: login correcto/incorrecto, expiración, 401, 403, CRUD admin, base apagada, regresión.
+1. Pedir **casos de prueba** antes de más código: login correcto/incorrecto, expiración, 401, 403, CRUD de usuario, catálogo `rol` solo lectura (GET y 405 en escritura), `rol_usuario`, base apagada y regresión.
 2. Probar desde Postman contra la API, no solo mediante clicks del frontend.
 3. Inspeccionar `usuario.password` como hash **sin imprimir valores reales** en la sustentación.
 4. Intentar una escritura con rol consulta y comprobar que no cambió ninguna fila.
@@ -100,7 +106,7 @@ No marques checklist aprobado ni afirmes pruebas ejecutadas sin evidencia.
 
 ## 6. Restricciones de compatibilidad verificadas en la documentación V2
 
-- **16 recursos** (6 V1 + 10 V2); V3 solo añade los tres de gestión y la capa de identidad.
+- **16 recursos** (6 V1 + 10 V2); V3 añade la capa de identidad y las tablas `usuario`, `rol`, `rol_usuario`. En la aplicación, `usuario` tiene CRUD, `rol` es catálogo GET-only y `rol_usuario` gestiona asignaciones.
 - **Cinco asociaciones simples V2** (`grupo_linea`, `semillero_linea`, `ac_linea`, `ods_linea`, `aa_linea`) admiten GET/POST/DELETE lógico y responden **405 a PUT/PATCH** si la persona está autorizada; no generar edición para ellas.
 - **Controladores V2 revisados** responden **422** a PATCH `{}`; el contrato V1 anterior contemplaba **400**. Cada recurso debe preservar su contrato, a menos que un cambio se apruebe expresamente.
 - **Frontend V2** utiliza streams (`stream_context_create` + `file_get_contents`), no cURL: no escribir pruebas que den por hecha una migración no realizada.

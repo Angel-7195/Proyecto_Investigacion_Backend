@@ -1,5 +1,7 @@
 # Tareas — v3: Seguridad (Investigación)
 
+> **Actualización — 19-11-2026, catálogo `rol`:** integrado como recurso de solo lectura. Se comprobaron los GET de listado/ficha, los métodos de escritura con respuesta `405` y `Allow: GET`, la suite aislada de rol (salida: 6 escenarios aprobados) y la pantalla sin botones de escritura. `rol_usuario` conserva sus operaciones y su suite `15/15`. Ver [REGISTRO_FASE7_CATALOGO_ROL_20261119.md](REGISTRO_FASE7_CATALOGO_ROL_20261119.md). No se marca la v3 completa ni se afirma probada la petición de `consulta` a `/api/rol`.
+
 > **Actualización — 16-11-2026:** el servicio `inicializar-admin` de Docker Compose ya fue probado con volumen habitual y base nueva aislada; el segundo intento no duplicó el usuario. También se agregó una tarjeta demo condicional al login y se comprobó acceso web con la cuenta real. Los resultados se separan de las pruebas aún pendientes en [REGISTRO_BOOTSTRAP_Y_LOGIN_DEMO_20261116.md](REGISTRO_BOOTSTRAP_Y_LOGIN_DEMO_20261116.md). No se marca la V3 completa.
 
 > **Actualización — 13-11-2026, fase 6 frontend (Ángel):** navegador y MariaDB confirmaron altas/edición/contraseña/baja lógica de usuarios, asignación/duplicado/retiro/restauración de roles, menú `consulta`, denegación de ruta administrativa y revocación de acceso con la sesión ya abierta. `ADMIN` es el único administrador activo según SQL; el frontend lo muestra protegido, **sin ensayar su eliminación real**. Se restauró el rol de Mariana después de las pruebas. Véase [REGISTRO_FASE6_FRONTEND.md](REGISTRO_FASE6_FRONTEND.md). Este registro **no cierra** CRUD `rol`, regresión, SDD ni la V3 global.
@@ -54,9 +56,9 @@
 - [ ] Modelos `Rol` y `RolUsuario` acordes al DDL real.
 - [ ] Interfaces de servicios y repositorios para los tres recursos.
 - [ ] Repositorio de usuarios con búsqueda por identificador de login y estado activo.
-- [ ] Repositorio de roles con lectura de roles vigentes.
+- [x] Repositorio de roles limitado a lectura de roles vigentes (`listar` y `obtener`); sin métodos de escritura.
 - [ ] Repositorio de asignaciones con manejo de FK, duplicados y retirada según C8.
-- [ ] Borrado lógico en usuario/rol; validar coherencia con dependencias.
+- [x] Borrado lógico en `usuario`; `rol` conserva `activo` en el DDL, pero el catálogo fijo no expone mutaciones; `rol_usuario` se retira físicamente según C8.
 - [ ] Agregar dependencias al ensamblador.
 
 **Verificación:** casos de repositorio mediante datos de prueba y errores de integridad traducidos.
@@ -75,7 +77,7 @@
 
 - [ ] Inventariar todos los métodos y rutas de los 16 recursos previos.
 - [x] Implementar guarda de autenticación y rol antes del controlador (`index.php` confirmado por `Select-String`; 28/28 suite; HTTP 401/200 en `area_conocimiento`).
-- [ ] Proteger los 3 CRUD administrativos exclusivamente para admin.
+- [ ] Proteger los recursos administrativos exclusivamente para admin: CRUD de `usuario`, GET de catálogo `rol` y operaciones permitidas de `rol_usuario`.
 - [ ] `401` **comprobado por HTTP** sin token; `403` y ausencia de escrituras **solo en suite automatizada**, pendientes pruebas reales con `consulta`.
 - [ ] Bloquear escrituras de `consulta` en todos los CRUD de v1/v2.
 - [x] Comprobar en suite automatizada que retirar el rol `admin` elimina privilegios y usuario desactivado pierde autenticación; falta prueba de integración HTTP con cambio real de BD.
@@ -93,18 +95,20 @@
 | `GET /api/area_conocimiento` sin Bearer | **401** | Solo una ruta comprobada por HTTP |
 | Misma GET con JWT válido de `ADMIN` | **200** | Prueba positiva de admin, no de `consulta` |
 
-**Decisión de seguimiento:** iniciar CRUD `usuario` y `rol_usuario` sin dar por terminadas las tareas de regresión y matriz HTTP. `rol` sigue asignado a Miguel Angel Lotero Alvarez. Evidencia detallada en `REGISTRO_FASE2_LOGIN.md` y `REGISTRO_FASE3_MIDDLEWARE.md`.
+**Decisión de seguimiento registrada en el corte del 12-11-2026:** iniciar CRUD `usuario` y `rol_usuario` sin dar por terminadas las tareas de regresión y matriz HTTP. En ese momento, el módulo `rol` estaba asignado a Miguel Angel Lotero Alvarez; la precisión posterior del catálogo fijo se registra en la actualización del 19-11-2026. Evidencia histórica en `REGISTRO_FASE2_LOGIN.md` y `REGISTRO_FASE3_MIDDLEWARE.md`.
 
-## Fase 5 — CRUD administrativo API
+## Fase 5 — Administración API: `usuario`, catálogo `rol` y `rol_usuario`
 
 - [x] Rutas específicas `usuario`: GET listado/individual, POST, PUT, PATCH, DELETE **implementadas y probadas por HTTP en MariaDB local**; `PATCH /api/usuario/{id}/password` probado con 200. Casos negativos restantes pendientes.
-- [ ] Rutas específicas `rol`: GET listado/individual, POST, PUT, PATCH, DELETE.
+- [x] Rutas específicas `rol`: únicamente GET listado/individual; POST, PUT, PATCH y DELETE rechazados con `405` y `Allow: GET` para token admin.
 - [x] Flujo principal `rol_usuario` GET/POST/DELETE implementado y probado por HTTP (15/15 aisladas, 201/200/409/200/404); aceptación de último admin y casos negativos pendiente.
-- [ ] Validación de JSON, campos, llaves y listas blancas según esquema.
-- [ ] Tratamiento de 204/400/404/409/422/500 sin filtración de SQL.
-- [ ] Pruebas contra el uso directo de las rutas por `consulta` y usuarios sin token.
+- [x] Interfaces y servicios de `rol` limitados a `listar` y `obtener`; repositorio MariaDB con SELECT de registros activos.
+- [x] Prueba aislada de `rol`: `php -l` correcto y salida `6 escenarios aislados de rol aprobados`.
+- [ ] Validación de JSON, campos, llaves y listas blancas de `usuario` y `rol_usuario` según esquema.
+- [ ] Tratamiento de 204/400/404/409/422/500 sin filtración de SQL en todos los recursos.
+- [ ] Probar con HTTP real que `consulta` recibe `403` al solicitar `GET /api/rol`; la política está definida, pero esa petición no se ejecutó en la actualización del catálogo.
 
-**Verificación parcial realizada:** CRUD `usuario` probado con PowerShell + JWT real y MariaDB: 28/28 suite aislada, HTTP 200/201/404/409/401 y `activo=0` tras DELETE; POST observado sin `password` en JSON. **No** se probó Postman ni se completaron los otros dos CRUD ni la matriz completa de roles. Fuente: `REGISTRO_FASE4_USUARIO.md`.
+**Verificación parcial realizada:** CRUD `usuario` probado con PowerShell + JWT real y MariaDB: 28/28 suite aislada, HTTP 200/201/404/409/401 y `activo=0` tras DELETE; POST observado sin `password` en JSON. Catálogo `rol` cuenta con pruebas aisladas y HTTP acotadas; `rol_usuario` mantiene 15/15. No se ha completado la matriz global ni la regresión. Fuentes: registros de fases 4, 5 y 7.
 
 ### Evidencias concretas de Fase 5 — `usuario` (12-11-2026)
 
@@ -131,7 +135,7 @@
 - [x] DELETE asociación `200`, GET ficha posterior `404` y mismo JWT sin acceso `403`.
 - [x] SQL posterior: usuario consulta activo sin rol y admin activo con `admin`.
 - [ ] Último administrador, FK inválida, PUT/PATCH 405 y segundo DELETE por HTTP en entorno descartable.
-- [ ] Integración frontend, CRUD `rol` de Miguel, regresión completa y revisión humana.
+- [ ] En el corte histórico del 12-11-2026 quedaban integración frontend, catálogo `rol`, regresión completa y revisión humana; la integración posterior del catálogo se documenta en fase 7.
 
 Fuente: `REGISTRO_FASE5_ROL_USUARIO.md`. Las marcas corresponden solo a hechos reportados; no aprueban toda la fase.
 
@@ -143,13 +147,13 @@ Fuente: `REGISTRO_FASE5_ROL_USUARIO.md`. Las marcas corresponden solo a hechos r
 - [x] Cliente HTTP incorpora Bearer desde la sesión: **código revisado**. **Pendiente:** resolver C11-V2, porque todavía usa streams HTTP y no cURL.
 - [x] Menú por roles y acceso protegido también en la API: `consulta` vio solo lectura y recibió denegación al entrar directamente en gestión de roles.
 - [x] Pantallas administrativas de `usuario` para alta, listado, edición PUT/PATCH, contraseña y baja lógica; vistas y persistencia comprobadas parcialmente desde el navegador y SQL.
-- [ ] Pantallas de CRUD del **catálogo `rol`**: asignadas a Miguel; no atribuir su implementación a la gestión de `rol_usuario`.
+- [x] Pantalla `/roles` del catálogo fijo: muestra `admin` y `consulta` con ID, nombre y descripción, sin botones de crear, editar o retirar.
 - [x] Pantalla de consulta, asignación y retirada de `rol_usuario` (incluida confirmación POST + CSRF y duplicado); restauración de vínculo probada.
 - [x] Logout por POST con limpieza de sesión y cookie **revisado en código**; pendiente prueba independiente de cookie/token posterior.
 - [ ] Completar la matriz de 401, 403 y API caída en **todos** los formularios; la denegación de `consulta` y del usuario sin rol sí fue comprobada.
 - [ ] Confirmar frontend sin PDO, sin claves BD y sin importar clases backend.
 
-**Verificación parcial realizada:** pruebas desde navegador con `ADMIN` y Mariana (`consulta`), más SQL de solo lectura. **Pendientes:** API apagada, auditoría de separación, integración de `rol` y matriz completa. Evidencia: `REGISTRO_FASE6_FRONTEND.md`.
+**Verificación parcial realizada:** pruebas desde navegador con `ADMIN` y Mariana (`consulta`), más SQL de solo lectura. El catálogo `rol` se añadió posteriormente y se verificó visualmente el 19-11-2026; `rol_usuario` no se modificó. **Pendientes:** API apagada, auditoría de separación, verificación del selector dentro de `/roles-usuarios` y matriz completa. Evidencias: `REGISTRO_FASE6_FRONTEND.md` y `REGISTRO_FASE7_CATALOGO_ROL_20261119.md`.
 
 ### Adición de demo académica al login (15-11-2026)
 
@@ -165,7 +169,7 @@ Fuente: `REGISTRO_FASE5_ROL_USUARIO.md`. Las marcas corresponden solo a hechos r
 - [x] Prueba de revocación inmediata en navegador: Mariana permaneció con sesión abierta, ADMIN retiró su único rol y la página protegida dejó de mostrar registros; después de restaurar `consulta` e iniciar una sesión nueva, cargaron **218** áreas de conocimiento.
 - [x] SQL de lectura: solo `ADMIN` (ID 1) figuraba con rol `admin` activo y el vínculo de Mariana (ID 6) desapareció durante el retiro; posteriormente fue restaurado. **No** se ejecutó DELETE del administrador real.
 
-- [ ] Regresión diferenciada: los cinco recursos V2 con campos editables mantienen PUT/PATCH; las cinco asociaciones simples (`grupo_linea`, `semillero_linea`, `ac_linea`, `ods_linea`, `aa_linea`) devuelven **405** para PUT/PATCH de admin; el rol `consulta` devuelve **403** al intentar cualquier escritura.
+- [ ] Regresión diferenciada: los cinco recursos V2 con campos editables mantienen PUT/PATCH; las cinco asociaciones simples (`grupo_linea`, `semillero_linea`, `ac_linea`, `ods_linea`, `aa_linea`) devuelven **405** para PUT/PATCH de admin; el rol `consulta` devuelve **403** al intentar cualquier escritura; el catálogo `rol` solo admite GET para admin y deniega a `consulta`.
 - [ ] Comprobar la divergencia documentada: PATCH `{}` en controladores V2 revisados → **422**; casos V1 según sus contratos → **400** donde corresponde. No homogeneizar sin decisión documentada.
 - [ ] Registrar qué ocurrió con C4 (retiro de padres), C11 (cURL), tag/regresión de V2 después del 29-10.
 
@@ -201,7 +205,7 @@ No marcar tareas hechas porque exista el archivo Markdown. Las fases de arriba s
 | RF-v3-00 | Fase 1 — semillas, bootstrap CLI, Docker | CA0: roles y admin, repetición sin duplicados, volumen persistente |
 | RF-v3-01/02/03 | Fases 2–4 — login, JWT, verificador | CA1–3: 200/401, firma, expiración, ausencia de hash |
 | RF-v3-04/05/13/14 | Fase 4 — middleware de ruta y método | CA4–6/11: GET permitido, POST/PUT/PATCH/DELETE 403, 405 heredado |
-| RF-v3-06/07/08 | Fase 5 — recursos admin | CA7–8: CRUD, borrado lógico y tratamiento del puente C8 |
+| RF-v3-06/07/08 | Fase 5 — recursos administrativos | CA7–8: CRUD de `usuario`, catálogo `rol` de solo lectura y operaciones de `rol_usuario` según C8 |
 | RF-v3-09/10/11/15 | Fase 6 — sesión, pantallas y demo opcional | CA9–10/12/15: Bearer, menú, logout, API caída y tarjeta demo configurable |
 | RF-v3-12 | Fase 7 — regresión | CA11: los 16 recursos según contratos v1/v2 |
 | RNF-v3-02/03/04 | Fases 1/3/7 — seguridad | CA2/3/13: secreto fuera de Git, hashes, tokens inválidos |
@@ -209,4 +213,4 @@ No marcar tareas hechas porque exista el archivo Markdown. Las fases de arriba s
 
 ### Distribución recomendada en pareja (no asignación automática)
 
-El login y el middleware ya están implementados parcialmente y probados en el backend local. Para las siguientes ramas se mantiene el **contrato acordado de `POST /api/login`** y la matriz de permisos; el CRUD `rol` y el frontend deben integrarse; el flujo principal de `rol_usuario` ya se integró sin reabrir arbitrariamente los contratos del login, middleware ni `usuario`. Cada estudiante realiza commits propios y el encargado de `main` integra por Pull Request. Las decisiones C3–C11 deben tener responsable y fecha de aprobación antes de empezar sus tareas dependientes.
+El login y el middleware ya están implementados parcialmente y probados en el backend local. Se mantiene el **contrato acordado de `POST /api/login`** y la matriz de permisos; el catálogo `rol` ya se integró como solo lectura, y el flujo principal de `rol_usuario` se conserva sin cambios. Cada estudiante realiza commits propios y el encargado de `main` integra por Pull Request. Las decisiones C3–C11 deben tener responsable y fecha de aprobación antes de empezar sus tareas dependientes.

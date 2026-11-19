@@ -1,5 +1,7 @@
 # Investigación y decisiones — v3: Seguridad
 
+> **Actualización de decisión — 19-11-2026:** se aprobó y aplicó la precisión de C3: `rol` es un catálogo fijo de solo lectura, con los perfiles `admin` y `consulta`. Se eliminan las operaciones CRUD de roles; la API admite solo GET de colección y ficha, y el frontend solo presenta el catálogo. Las pruebas y sus límites se documentan en [REGISTRO_FASE7_CATALOGO_ROL_20261119.md](REGISTRO_FASE7_CATALOGO_ROL_20261119.md). `rol_usuario` conserva su contrato sin cambios.
+
 > **Actualización de evidencia — 12-11-2026, fase 5:** gestión principal de `rol_usuario` comprobada por **15/15** pruebas aisladas y HTTP real: asignación `201`, ficha `200`, duplicado `409`, retiro `200`, ficha posterior `404`. Un usuario `consulta` real obtuvo GET V1 `200`, POST V1 `403` y GET administrativo `403`; tras retirar el rol, **el mismo JWT** pasó a GET `403`. SQL confirmó usuario sin rol aún activo y `ADMIN` con `admin`. La protección del último administrador **queda pendiente de prueba final solo en base descartable**, sin arriesgar el volumen local. Ver [REGISTRO_FASE5_ROL_USUARIO.md](REGISTRO_FASE5_ROL_USUARIO.md).
 
 > Cada decisión indica contexto, alternativas, decisión y consecuencia. **Aprobada** significa exigida por las fuentes del proyecto; **propuesta** requiere aprobación del equipo en la compuerta 1. No confundir este documento con investigación externa de bibliotecas.
@@ -40,10 +42,10 @@
 
 ## D-v3-05 — Política mínima de privilegios
 
-- **Contexto:** el requisito explícito dice que `consulta` no puede escribir y solo admin gestiona usuarios/roles.
+- **Contexto:** el requisito explícito dice que `consulta` no puede escribir y solo admin accede a los recursos administrativos. Desde la precisión de C3, `rol` es un catálogo de solo lectura y no se administra mediante CRUD.
 - **Alternativas:** (a) conceder permisos por defecto y bloquear excepciones; (b) denegar acciones no asignadas explícitamente.
 - **Decisión propuesta:** (b). `consulta` lee; `admin` gestiona; ningún rol desconocido concede permisos automáticamente.
-- **Consecuencias:** la matriz de rutas será fácil de auditar, pero exige acordar perfiles y permisos de lectura.
+- **Consecuencias:** la matriz de rutas será fácil de auditar, pero exige acordar perfiles y permisos de lectura. El acceso administrativo a `rol` se limita a GET; las mutaciones no están disponibles.
 - **Estado al 12-11:** matriz aplicada en pruebas automatizadas del middleware (28/28); faltan pruebas HTTP con cuenta real `consulta` y comprobación de la ausencia de escrituras.
 
 ## D-v3-06 — Roles vigentes y cambios posteriores al login
@@ -128,7 +130,7 @@
 - **Alternativas:** (a) poner usuario y contraseña iniciales con INSERT en `init.sql`; (b) incluir en el SQL **solo los roles públicos** `admin` y `consulta` y delegar la creación de la cuenta a un bootstrap PHP seguro; (c) dejar los roles para crearse manualmente cada vez.
 - **Decisión acordada en esta revisión (9-11-2026):** (b). Añadir los dos nombres de rol al `init.sql` **como cambio de semillas explícito y numerado**, no como modificación de DDL. Los IDs no se fijan: se consultan por nombre. Para volúmenes ya existentes, el inicializador debe asegurar idempotentemente la presencia de ambos roles sin borrar ni recrear la BD.
 - **Consecuencias:** el `init.sql` del curso sigue siendo el esquema de referencia; el cambio en los datos semilla debe anotarse en la cabecera. Un reinicio no duplica los roles; un volumen previo no ejecuta automáticamente SQL nuevo. No aparece ninguna contraseña en Git. Pendiente probar dos escenarios (base nueva y existente) y la orquestación del arranque.
-- **Estado a 10-11-2026:** el estudiante comunica aprobación del equipo y exhibió `git diff` con ambas semillas; la consulta posterior mostró ambos roles activos en volumen persistente. No está comprobado su uso en una instalación limpia.
+- **Estado a 10-11-2026:** el estudiante comunica aprobación del equipo y exhibió `git diff` con ambas semillas; la consulta posterior mostró ambos roles activos en volumen persistente. No está comprobado su uso en una instalación limpia. **Precisión posterior D-v3-22 (19-11-2026):** esos dos nombres constituyen el catálogo fijo de acceso; no se permite ampliar o modificar el catálogo mediante endpoints CRUD.
 
 ## D-v3-17 — Tomar la metodología de la v3 del profesor, no su contenido
 
@@ -169,3 +171,12 @@
 - **Evidencia:** el estudiante observó la tarjeta en navegador, validó la sintaxis de la vista y entró exitosamente con credenciales existentes; otro nombre ausente de MariaDB no pudo autenticarse. El modo oculto **no** se probó expresamente.
 - **Consecuencias/riesgos:** cualquier visitante que vea la tarjeta obtiene credenciales con rol `admin`. Solo utilizar con información ficticia, base aislada y plan de recreación; no incluir la clave literal en Git ni usar un administrador de producción. No presentar esta decisión como una medida de seguridad.
 - **Estado:** implementación local y prueba positiva acotada; pendiente auditoría de configuración y despliegue en AlwaysData. Ver [REGISTRO_BOOTSTRAP_Y_LOGIN_DEMO_20261116.md](REGISTRO_BOOTSTRAP_Y_LOGIN_DEMO_20261116.md).
+
+## D-v3-22 — Catálogo fijo de roles, sin mutaciones desde la aplicación (19-11-2026)
+
+- **Contexto:** el alcance original describía CRUD para `rol`, pero el sistema de seguridad de esta versión solo necesita dos perfiles conocidos: `admin` y `consulta`. Permitir crear, editar o retirar roles desde la API ampliaría innecesariamente la superficie administrativa y permitiría introducir perfiles que no forman parte de la matriz de permisos aprobada.
+- **Alternativas:** (a) conservar el CRUD de `rol` y controlar individualmente qué nombres reciben privilegios; (b) mantener `rol` como catálogo fijo sembrado por el bootstrap y exponer únicamente operaciones de consulta.
+- **Decisión:** (b). Los únicos nombres de rol admitidos por la v3 son `admin` y `consulta`; MariaDB genera sus IDs. La API permite únicamente `GET /api/rol` y `GET /api/rol/{id}`, protegidos para `admin`. Para una petición administrativa con `POST`, `PUT`, `PATCH` o `DELETE`, el router responde `405 Method Not Allowed` y `Allow: GET`. La pantalla `/roles` presenta el catálogo sin formularios ni botones de escritura. `rol_usuario` permanece separado y conserva sus operaciones aprobadas para asignar o retirar vínculos.
+- **Consecuencias:** los servicios e interfaces de `rol` solo necesitan `listar` y `obtener`; el repositorio solo consulta registros activos. La columna `activo` se conserva porque pertenece al DDL, pero no se expone como campo editable ni existe una ruta para retirar un rol. El bootstrap sigue asegurando los dos nombres por nombre, sin IDs fijos. Un usuario `consulta` no puede consultar el recurso administrativo `rol` y debe recibir `403`; esa petición específica no se ejecutó en la actualización del 19-11.
+- **Evidencia acotada:** prueba aislada de rol con salida `6 escenarios aislados de rol aprobados`; prueba aislada de `rol_usuario` conservada en `15/15`; HTTP admin: GET colección `200`, GET IDs locales 1 (`admin`) y 2 (`consulta`) `200`; POST colección y PUT/PATCH/DELETE de ficha respondieron `405` con `Allow: GET`. El frontend mostró ambos registros y ninguna acción de escritura. Ver [REGISTRO_FASE7_CATALOGO_ROL_20261119.md](REGISTRO_FASE7_CATALOGO_ROL_20261119.md).
+- **Estado:** implementado y probado localmente en los escenarios indicados; no equivale a regresión completa ni a cierre de la v3.

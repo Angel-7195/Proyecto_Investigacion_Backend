@@ -1,5 +1,7 @@
 # Plan técnico — v3: Seguridad (Investigación)
 
+> **Actualización — 19-11-2026, catálogo `rol`:** la integración del catálogo quedó realizada. El backend expone solo GET de listado y ficha; `POST`, `PUT`, `PATCH` y `DELETE` responden `405` con `Allow: GET` para el administrador. Las interfaces y servicios de rol se limitaron a listar/obtener; el repositorio realiza lecturas de roles activos. El frontend muestra el catálogo sin botones de escritura. Prueba aislada de rol: salida `6 escenarios aislados de rol aprobados`; `rol_usuario`: regresión aislada `15/15`; HTTP real y pantalla documentados en [REGISTRO_FASE7_CATALOGO_ROL_20261119.md](REGISTRO_FASE7_CATALOGO_ROL_20261119.md). No se modificó el contrato de `rol_usuario`.
+
 > **Actualización — 16-11-2026:** quedó probado el encadenamiento Docker `mariadb (healthy) → inicializar-admin (exit 0) → API`, la creación en base nueva aislada y la repetición del inicializador sin duplicaciones. También se verificó la sintaxis de la tarjeta opcional de credenciales en el login y un ingreso administrativo real. Estas pruebas son locales y no prueban despliegue en AlwaysData ni la totalidad de casos negativos. Ver [REGISTRO_BOOTSTRAP_Y_LOGIN_DEMO_20261116.md](REGISTRO_BOOTSTRAP_Y_LOGIN_DEMO_20261116.md).
 
 > **Ejecución parcial del frontend registrada el 13-11-2026:** login, sesión, menú diferenciado, CRUD principal de `usuario` y asignación/retiro de `rol_usuario` observados; la retirada del único rol de Mariana durante una sesión abierta impidió nuevas consultas hasta restaurarlo y volver a iniciar sesión. Fuente: [REGISTRO_FASE6_FRONTEND.md](REGISTRO_FASE6_FRONTEND.md). Quedan integración del catálogo `rol` de Miguel, verificación de API apagada y regresión completa.
@@ -76,13 +78,13 @@ Proyecto_Investigacion_Frontend/
     cliente_api.php                 # HTTP actual usa streams; adaptar/migrar según C11-V2
     rutas/
       rutas_usuario.php            # implementado: lista, registro, perfil, contraseña, baja lógica
-      rutas_rol.php                # catálogo: por integrar con trabajo de Miguel
+      rutas_rol.php                # catálogo fijo: solo consulta/listado
       rutas_rol_usuario.php        # implementado: listar, asignar, confirmar y retirar vínculos
     vistas/
       compartidas/plantilla.php    # ubicación real documentada en V2
       autenticacion/login.php
       usuario/{lista.php,formulario.php}
-      rol/...                      # pendiente de integración
+      rol/lista.php                # catálogo de solo lectura, sin formularios de escritura
       rol_usuario/gestion.php
 ```
 
@@ -98,8 +100,8 @@ Las rutas de archivo de arriba son **orientativas**, deben ajustarse a la estruc
 | `seguridad/Jwt.php` | Firmar/verificar token y expiración | Acceder a BD o confiar en `alg` sin lista permitida |
 | `seguridad/Autorizador.php` | Evaluar permisos del recurso y verbo según identidad validada | Conceder permiso solo porque la interfaz oculta botones |
 | Controladores de login/CRUD | Forma del JSON, mensajes HTTP 400/401/403/409/422/500 | SQL directo |
-| Servicios | Verificar reglas de autenticación, operaciones de usuario y rol | HTTP, `$_SESSION` del frontend, SQL |
-| Repositorios | PDO parametrizado, FK, índices, activo | Decidir estado HTTP |
+| Servicios | Verificar reglas de autenticación y operaciones de usuario/rol_usuario; en `rol`, exponer únicamente listar/obtener | HTTP, `$_SESSION` del frontend, SQL |
+| Repositorios | PDO parametrizado, FK, índices, activo; el repositorio de `rol` solo consulta roles activos | Decidir estado HTTP |
 | Frontend PHP | `session_start()`, cliente HTTP aprobado (streams actuales o cURL tras C11), menú, vistas y logout | Consultar MariaDB o exponer `JWT_SECRET` |
 
 **Notas de seguridad:** la API verifica firma, cabecera y caducidad, identifica al usuario y comprueba los permisos aplicables. El contrato final define si debe consultar el estado y roles actuales en MariaDB en cada petición; es importante ante retiro de usuarios o revocación de roles.
@@ -128,7 +130,7 @@ Las rutas de archivo de arriba son **orientativas**, deben ajustarse a la estruc
 
 1. Escribir modelos ajustados al SQL real, interfaces de repositorio y servicio.
 2. Implementar repositorios MariaDB con listas blancas y parámetros vinculados.
-3. Conservar el borrado lógico en `usuario` y `rol`. El puente `rol_usuario` no tiene `activo` y borrar lógicamente un usuario/rol no activa `ON DELETE CASCADE`; decidir el retiro de asignaciones en C8.
+3. Conservar el borrado lógico de `usuario`. La tabla `rol` conserva su columna `activo` por el DDL, pero la aplicación trata sus dos registros semilla (`admin` y `consulta`) como catálogo fijo y no expone operaciones para editarlos o retirarlos. El puente `rol_usuario` no tiene `activo`; su retiro físico se limita al vínculo según C8.
 4. Ampliar el ensamblador sin introducir dependencias directas en controladores.
 
 ### Fase C — Autenticación y permisos
@@ -139,11 +141,13 @@ Las rutas de archivo de arriba son **orientativas**, deben ajustarse a la estruc
 4. Implementar comprobación común de Bearer y rol antes de los controladores, con `401` para no autenticado y `403` para no autorizado.
 5. Probar que la base **no cambia** tras cada denegación.
 
-### Fase D — CRUD administrativo
+### Fase D — Administración de usuarios, catálogo `rol` y asignaciones
 
-1. Implementar operaciones de `usuario`, `rol` y `rol_usuario` conforme al DDL aprobado.
-2. Garantizar que ningún GET o respuesta incluya `password`, ni siquiera el hash.
-3. Comprobar `UNIQUE` de `username`, `email` y `rol.nombre`, duplicados de PK compuesta, FKs, `activo = 1`, desactivación y retiro de asignaciones.
+1. Implementar el CRUD de `usuario` conforme al DDL aprobado.
+2. Implementar `rol` como catálogo fijo de solo lectura: `GET /api/rol` y `GET /api/rol/{id}`; `POST`, `PUT`, `PATCH` y `DELETE` responden `405` con `Allow: GET`.
+3. Mantener `rol_usuario` como recurso separado: GET/POST/DELETE según C8; PUT/PATCH responden `405`.
+4. Garantizar que ningún GET o respuesta incluya `password`, ni siquiera el hash.
+5. Comprobar `UNIQUE` de `username` y `email`, duplicados de PK compuesta, FKs, `activo = 1`, desactivación de usuarios y retiro de asignaciones. Los nombres de rol permitidos son únicamente `admin` y `consulta`; no hay creación de roles por API.
 
 
 **Avance verificado a 12-11-2026 — submódulo `usuario` (responsable Ángel):**
@@ -152,11 +156,11 @@ Las rutas de archivo de arriba son **orientativas**, deben ajustarse a la estruc
 - Pruebas aisladas **28/28** y pruebas HTTP sobre MariaDB local para listado, ficha, POST, PUT, PATCH, cambio de contraseña por ruta separada, duplicados y DELETE lógico.
 - Se comprobó `activo=0` tras el retiro y que el GET administrativo del usuario retirado devuelve `404`. Los errores de duplicado de `username` y `email` devuelven `409`. El GET sin Bearer devuelve `401`.
 - La comprobación de último admin existe en el repositorio con transacción y bloqueo, pero **solo se probó con repositorio falso**; probar en un entorno de BD descartable antes de afirmar su verificación end-to-end. Esta coordinación debe respetarse cuando se implemente `rol_usuario`.
-- Ya se comprobó **HTTP 403 con un usuario `consulta` real** y la gestión principal de `rol_usuario` (Ángel). Siguen pendientes `rol` (Miguel), pruebas del último admin, frontend y regresión completa.
+- Ya se comprobó **HTTP 403 con un usuario `consulta` real** en rutas administrativas y la gestión principal de `rol_usuario` (Ángel). El catálogo `rol` quedó integrado el 19-11-2026 como solo lectura: GET de listado/ficha y 405 para POST/PUT/PATCH/DELETE con token admin. La prueba específica de GET de `rol` con usuario `consulta`, las pruebas del último admin, la regresión completa y otras comprobaciones de frontend continúan pendientes.
 
 ### Fase E — Frontend
 
-**Estado al 13-11-2026:** login y sesión, navegación con permisos, administración de `usuario` y `rol_usuario` están implementados y tienen pruebas manuales representativas. El código del cliente aún usa streams HTTP, la auditoría de cookie/logout y la API caída no se han completado, y el catálogo `rol` se integra después con Miguel. Las tareas siguientes describen la estrategia original; los resultados están en el registro de fase 6.
+**Estado al 19-11-2026:** login y sesión, navegación con permisos, administración de `usuario` y `rol_usuario` están implementados y tienen pruebas manuales representativas. El catálogo `rol` también quedó integrado como pantalla de consulta, sin botones ni formularios de escritura. El código del cliente aún usa streams HTTP; la auditoría de cookie/logout y la API caída no se han completado. Los resultados del catálogo están en el registro de fase 7 y los del resto del frontend en el registro de fase 6.
 
 **Adición de acceso demo — 16-11-2026:** `front_php/vistas/autenticacion/login.php` muestra, bajo condición de entorno, la cuenta académica de prueba. `docker-compose.demo.yml` pasa `LOGIN_DEMO_ENABLED`, `LOGIN_DEMO_ADMIN_USERNAME` y `LOGIN_DEMO_ADMIN_PASSWORD` únicamente al contenedor del frontend. Se comprobó `php -l` y login exitoso cuando los datos coincidieron con la base. Este aviso **no cambia la contraseña en MariaDB ni crea usuarios**. Exponer credenciales de un administrador entrega privilegios a cualquier visitante: usar solo base de demostración, datos ficticios y aislamiento del despliegue final. Véase el registro del 16-11.
 
@@ -170,7 +174,7 @@ Las rutas de archivo de arriba son **orientativas**, deben ajustarse a la estruc
 ### Fase F — Pruebas y cierre
 
 1. Pruebas de capa con repositorios falsos y MariaDB apagada cuando proceda.
-2. Pruebas HTTP: login, JWT corrupto, expirado, falta de token, matriz de roles y 3 CRUD.
+2. Pruebas HTTP: login, JWT corrupto, expirado, falta de token, matriz de roles, CRUD de `usuario`, catálogo `rol` de solo lectura y operaciones de `rol_usuario`.
 3. Regresión de todos los contratos v1/v2 usando identidades permitidas; conservar PK compuestas, errores `409`, `405` de cinco asociaciones y `422` en PATCH vacío de V2 documentado.
 4. Comprobación del frontend encendido con API apagada.
 5. Ejecutar quickstart, completar checklist manual, revisión cruzada de PR, merge en `main`, tag `v3`.
@@ -189,10 +193,10 @@ Las rutas de archivo de arriba son **orientativas**, deben ajustarse a la estruc
 | Tres capas y ensamblador | Controlador → servicio → repositorio mediante interfaces y carpetas `Servicios_...` / `Repositorios_...` | Documentado en V2; verificar código integrado |
 | SQL y claves | Prepared statements; secrets en entorno | Compatible con metodología de aula |
 | Primer administrador | Roles públicos en `init.sql`; cuenta admin vía script PHP solo CLI y contraseña de entorno; preservar volumen | **Manual, volumen nuevo aislado, repetición y arranque Docker verificados**; casos negativos y hosting sin Docker pendientes |
-| JSON y rutas específicas | Login y CRUD administrativo con contratos propios | Compatible |
+| JSON y rutas específicas | Login, CRUD de `usuario`, catálogo `rol` de solo lectura y operaciones de `rol_usuario` con contratos propios | Compatible |
 | Un front por versión | Pantallas y sesión PHP nuevas en repo frontend | Compatible |
 | No mezclar procesos | Front llama API HTTP y no tiene PDO | Compatible |
-| Borrado lógico | `usuario`/`rol` por `activo`; `rol_usuario` se retira físicamente, según excepción aprobada | Acordado; falta implementar/probar |
+| Borrado lógico | `usuario` por `activo`; `rol` conserva `activo` en el DDL, pero no ofrece retiro por API; `rol_usuario` se retira físicamente, según excepción aprobada | Catálogo de rol solo lectura implementado; flujo principal de `rol_usuario` probado |
 | Idioma y tipos | Español, `declare(strict_types=1);` | Compatible |
 | No anticipar v4 | Sin dashboard, PWA ni despliegue | Compatible |
 | Seguros por diseño | Contraseña hasheada, JWT 60 minutos, control API y matriz que respeta `405` | Login y middleware probados localmente; quedan escenarios HTTP, frontend y regresión global |
@@ -209,7 +213,7 @@ El ejemplo `v3_segundo_motor` demuestra **qué archivos puede y no puede tocarse
 | `api_investigacion/index.php` | Añadir ruta pública de login y guarda previa de acceso | Con autorización, las rutas/PK antiguas se conservan |
 | `servicios/ensamblador.php` | Conectar componentes de seguridad y recursos nuevos | Los servicios V1/V2 siguen dependiendo de interfaces |
 | `seguridad/` o carpeta equivalente | JWT HS256 y política de acceso | No SQL ni decisiones sobre estructura de tablas en un verificador de token |
-| `repositorios/` y `servicios/` nuevos | Acceso tipado a `usuario`, `rol`, `rol_usuario` | SQL solo en repositorios, prepared statements |
+| `repositorios/` y `servicios/` nuevos | Acceso tipado a `usuario` y `rol_usuario`; `rol` solo requiere listar/obtener | SQL solo en repositorios, prepared statements; sin mutadores para `rol` |
 | Controladores V1/V2 | Preferir no tocar su lógica de validación/negocio | `409`, `405`, `404`, `204`, `422` por recurso siguen como antes |
 | `front_php/cliente_api.php` | Adicionar Bearer a todas las llamadas autenticadas | Ninguna conexión directa del front a MariaDB |
 | `front_php/index.php`, `rutas/`, `vistas/` | Login, logout, menús y pantallas admin | Las 16 pantallas anteriores funcionan con rol autorizado |
@@ -223,7 +227,7 @@ El ejemplo `v3_segundo_motor` demuestra **qué archivos puede y no puede tocarse
 2. **Verificador de token.** Aceptar exactamente tres segmentos base64url válidos, cabecera JSON con `alg=HS256`/`typ=JWT`, firma HMAC SHA-256 comprobada con `hash_equals`, `exp` futuro y claim de identidad bien formado; rechazar tokens malformados o caducados con `401`. Recomendación de implementación, sujeta a C6: `sub` contiene el ID de usuario, roles se consultan vigentes a la BD en cada solicitud.
 3. **Autorización con estado vigente.** Permitir acceso solo si `usuario.activo = 1`, `rol.activo = 1` y existe asociación en `rol_usuario`. Ningún rol desconocido debe habilitar rutas por defecto. La política final de combinación de roles se decide en C3/C4; el JWT no reemplaza estas verificaciones.
 4. **Sesión y navegación.** El servidor frontend conserva el token en `$_SESSION`, regenera identificador al entrar, utiliza cookie HTTPOnly/SameSite y Secure bajo HTTPS, y limpia sesión y cookie al salir. Los formularios de escritura deben protegerse contra CSRF de acuerdo con C10; las vistas no muestran tokens ni contraseñas. Si la API no responde, mostrar indisponibilidad sin consultar BD.
-5. **Bootstrap.** El proceso de consola crea/asegura roles idempotentemente por nombre, comprueba que no haya administrador válido previo ni cuentas ambiguas, y usa transacción para crear usuario, hash y asignación. Debe definirse cómo se inicia **después de la salud de MariaDB**, cómo falla cerrado si falta contraseña inicial y cómo se retiran los secretos de bootstrap tras el alta. Un reinicio no debe recrear cuentas.
+5. **Bootstrap.** El proceso de consola crea/asegura únicamente los roles fijos `admin` y `consulta` por nombre, comprueba que no haya administrador válido previo ni cuentas ambiguas, y usa transacción para crear usuario, hash y asignación. Debe definirse cómo se inicia **después de la salud de MariaDB**, cómo falla cerrado si falta contraseña inicial y cómo se retiran los secretos de bootstrap tras el alta. Un reinicio no debe recrear cuentas.
 6. **Evidencia.** Cualquier decisión implementada se vincula con un RF, una ruta de `6_contracts.md`, una tarea de `8_tasks.md` y una prueba repetible de `7_quickstart.md`. Ninguna fase pasa si sus pruebas funcionales fallan.
 
 > **Revisión de compuerta 2:** el chequeo del §6 es provisional hasta cotejar el `1_constitution.md` vigente del equipo, **artículo por artículo**; la constitución adjunta al ejemplo del profesor no reemplaza la del proyecto de aula. Si el equipo decide usar una excepción al borrado lógico en `rol_usuario`, registrarla y validarla con el profesor antes de codificar.

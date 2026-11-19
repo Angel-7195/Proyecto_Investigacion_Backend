@@ -1,5 +1,7 @@
 # Quickstart — v3: autenticación y roles
 
+> **Actualización — 19-11-2026, catálogo `rol`:** el recurso quedó como solo lectura. Con token admin, `GET /api/rol`, `GET /api/rol/1` y `GET /api/rol/2` respondieron `200`; `POST /api/rol` y `PUT`/`PATCH`/`DELETE /api/rol/999999` respondieron `405` con `Allow: GET`. La suite aislada de rol terminó con `6 escenarios aislados de rol aprobados`; la regresión aislada de `rol_usuario` siguió en `15/15`. La pantalla mostró `admin` y `consulta` sin acciones. Ver [REGISTRO_FASE7_CATALOGO_ROL_20261119.md](REGISTRO_FASE7_CATALOGO_ROL_20261119.md). No se volvió a probar `GET /api/rol` con una cuenta `consulta` ni la regresión completa.
+
 > **Actualización práctica — 16-11-2026:** se probó el arranque automático de `inicializar-admin` en Compose, una base nueva aislada con un único ADMIN activo y rol `admin`, la repetición idempotente y el arranque preservando la base habitual. En el frontend se comprobó la tarjeta de acceso demo condicional y un login administrativo real. La guía de las fases anteriores se conserva como registro histórico; el **procedimiento actual** es el de §0.1 y §5.6. Evidencia: [REGISTRO_BOOTSTRAP_Y_LOGIN_DEMO_20261116.md](REGISTRO_BOOTSTRAP_Y_LOGIN_DEMO_20261116.md).
 
 > **Actualización de frontend — 13-11-2026:** en `http://localhost:8110` se comprobaron manualmente el CRUD principal de usuarios, los vínculos `rol_usuario`, la restricción de `consulta`, el rechazo del login sin roles, la revocación durante una sesión abierta y la restauración del acceso al volver a asignar un rol. Evidencia detallada en [REGISTRO_FASE6_FRONTEND.md](REGISTRO_FASE6_FRONTEND.md). No implica regresión total, aceptación del catálogo `rol`, prueba de API apagada ni cierre SDD.
@@ -226,12 +228,13 @@ Con un token administrativo obtenido con el mismo flujo del §2, validar los sig
 | `GET /api/usuario` | 200 o 204, nunca retorna hashes |
 | `POST /api/usuario` con datos válidos | 201; `password` almacenado como hash |
 | Crear usuario con `username` duplicado, el esquema exige UNIQUE | 409 |
-| `GET /api/rol` | 200 o 204 |
-| `POST /api/rol` válido | 201 |
+| `GET /api/rol` y `GET /api/rol/{id}` | 200 o 204 en colección; 200/404 en ficha; solo admin |
+| `POST /api/rol` | 405 con `Allow: GET` |
+| `PUT`, `PATCH`, `DELETE /api/rol/{id}` | 405 con `Allow: GET` |
 | Crear `rol_usuario` con ambas FK activas | Éxito contractual aprobado |
 | Crear asignación de rol repetida | 409 si UNIQUE/PK lo prohíbe |
 | Crear asignación con FK inexistente | Error coherente con contrato (propuesta 409) |
-| Retirar usuario / rol | Borrado lógico y exclusión de SELECT |
+| Retirar usuario | Borrado lógico y exclusión de SELECT |
 | Dar de baja relación puente | DELETE físico **solo del vínculo** comprobado: 200 y GET posterior 404; usuario permanece activo |
 
 ### 4.1. Evidencia real del CRUD de `usuario` — 12-11-2026
@@ -303,6 +306,41 @@ ORDER BY u.id;
 Observado en este volumen local: `ADMIN` ID 1 activo con `admin`; cuenta `consulta` ID 4 activa con rol `NULL`. No extrapolar estos IDs a otras instalaciones. Si se necesita el usuario 4 en el frontend, reponer su asignación mediante JWT admin. **Prohibido probar el último administrador con DELETE en el volumen habitual**; hacerlo al cierre solo en BD descartable. Más detalles en `REGISTRO_FASE5_ROL_USUARIO.md`.
 
 
+## 4.3. Catálogo fijo `rol` — evidencia local de 19-11-2026
+
+El catálogo ya no es un CRUD. La API y la pantalla permiten consultar los dos perfiles semilla (`admin` y `consulta`), pero no crear, editar ni retirar roles. Las pruebas se ejecutaron con el token de `ADMIN`; no se copia el JWT en este documento.
+
+**Consultas HTTP observadas:**
+
+| Petición | Resultado observado |
+|---|---|
+| `GET /api/rol` | `200`, catálogo visible |
+| `GET /api/rol/1` | `200`, `admin`, «Administrador del sistema» |
+| `GET /api/rol/2` | `200`, `consulta`, «Usuario con permisos de solo lectura» |
+| `POST /api/rol` | `405`, cabecera `Allow: GET` |
+| `PUT /api/rol/999999` | `405`, cabecera `Allow: GET` |
+| `PATCH /api/rol/999999` | `405`, cabecera `Allow: GET` |
+| `DELETE /api/rol/999999` | `405`, cabecera `Allow: GET` (repetido con el encabezado Bearer) |
+
+Los IDs 1 y 2 corresponden a la instancia local probada; no se deben fijar como constantes en otra base. El ID `999999` se usó en las rutas de métodos bloqueados para evitar apuntar a un rol real; el router rechazó los verbos antes de invocar la operación de negocio.
+
+**Pruebas aisladas:**
+
+```text
+php -l /app/pruebas/prueba_rol_aislada.php
+No syntax errors detected in /app/pruebas/prueba_rol_aislada.php
+
+php /app/pruebas/prueba_rol_aislada.php
+6 escenarios aislados de rol aprobados.
+
+php /app/pruebas/prueba_rol_usuario_aislada.php
+Pruebas aisladas de rol_usuario: 15 / 15.
+```
+
+**Frontend:** la pantalla de catálogo mostró dos filas (`admin` y `consulta`) con columnas ID, Nombre y Descripción, sin botones para crear, editar o retirar. La vista/formulario anterior quedó sin uso; `rol_usuario` se conserva sin cambios. Esta evidencia no certifica el comportamiento del selector de roles dentro de `/roles-usuarios`.
+
+**Límite de esta actualización:** no se ejecutó una petición `GET /api/rol` con un usuario `consulta`; C4 exige que ese acceso administrativo responda `403`. Tampoco se ejecutó regresión HTTP completa de los 16 recursos ni se declara cerrada la v3.
+
 ## 5. Frontend: sesión, usuarios y `rol_usuario` — pruebas locales de 13-11-2026
 
 **Antes de probar:** `docker compose up -d --build` desde el repositorio backend con `FRONT_PATH` apuntando al frontend. Abrir `http://localhost:8110/login`. Usar credenciales de **prueba propias**, nunca incluidas en este documento. La API está en `http://localhost:8111`. Para inspeccionar solo sintaxis del frontend:
@@ -320,7 +358,7 @@ docker compose exec -T front-php php -l /app/vistas/rol_usuario/gestion.php
 
 ### 5.1. Comprobar sesiones y permisos
 
-1. Iniciar sesión como `ADMIN` en `/login` y comprobar los enlaces «Usuarios» y «Roles por usuario». El menú de catálogo `rol` independiente se integra cuando esté terminado por Miguel.
+1. Iniciar sesión como `ADMIN` en `/login` y comprobar los enlaces «Usuarios», «Roles» (catálogo de solo lectura) y «Roles por usuario» (`rol_usuario`). El catálogo `rol` no ofrece botones de escritura.
 2. Abrir `/usuarios`; crear una cuenta temporal en `/usuarios/nuevo`. **Crear el usuario no asigna un rol automáticamente**.
 3. Iniciar sesión con esa cuenta antes de asignarle un rol: el sistema debe rechazar el acceso sin explicar si la cuenta existe o no.
 4. Desde ADMIN abrir `/roles-usuarios`, seleccionar la cuenta activa y asignar `consulta`. El listado debe mostrar el vínculo; una segunda asignación idéntica debe informar el duplicado (`409` ya verificado por la API en fase 5).
@@ -336,7 +374,7 @@ docker compose exec -T front-php php -l /app/vistas/rol_usuario/gestion.php
 
 El estudiante observó la creación de `prueba_delete_v3` (ID local 7), edición parcial de su nombre y desactivación; el listado dejó de mostrarla y `activo=0` quedó visible en phpMyAdmin. También se probó el acceso posterior con una contraseña actualizada una vez asignado el rol correspondiente.
 
-### 5.3. Retiro de rol y revocación de una sesión abierta
+### 5.3. Retiro de asignación `rol_usuario` y revocación de una sesión abierta
 
 Esta prueba se realizó con `mariana` (ID local 6), rol `consulta` (ID local 2). Para repetirla **usar una cuenta temporal y los IDs reales de esa base**, no asumir que son los mismos:
 
@@ -373,7 +411,7 @@ WHERE r.nombre = 'admin' AND r.activo = 1 AND u.activo = 1;
 
 - Apagar **únicamente la API**, mantener el frontend levantado y comprobar un aviso sin datos; restaurar la API después.
 - Probar logout/cookie después de la salida y formularios con CSRF ausente/manipulado.
-- Integrar selector dinámico del CRUD `rol` de Miguel; en la instancia probada los roles ID 1/2 se confirmaron en MariaDB, pero no son IDs portables.
+- La pantalla del catálogo `rol` ya está integrada como solo lectura. La interfaz `/roles-usuarios` no se modificó en esta fase; queda sin verificar si su selector obtiene las opciones dinámicamente desde el catálogo, y no deben asumirse IDs fijos fuera de la instancia local.
 - Repetir matriz completa de rutas y métodos de V1/V2 con cuentas admin/consulta y completar regresión; la instalación nueva del **bootstrap** se probó localmente, no la instalación completa de todos los módulos.
 
 ### 5.6. Tarjeta opcional de acceso de demostración en el login
@@ -436,7 +474,7 @@ git ls-files .env.example
 | Login JWT / credenciales correctas | **Comprobado:** login HTTP `ADMIN` → 200 y 3600 s; suite 15/15 | `REGISTRO_FASE2_LOGIN.md` |
 | HTTP 401 sin token y 200 con Bearer | **Comprobado** en `/api/area_conocimiento` | `REGISTRO_FASE3_MIDDLEWARE.md` |
 | HTTP 403 de `consulta` real | **Comprobado parcialmente:** POST V1 y GET `/api/usuario` → 403; mismo JWT tras retirar rol → 403 | `REGISTRO_FASE5_ROL_USUARIO.md` |
-| CRUD administrativo | **`usuario`: 28/28 aisladas y HTTP principal; `rol_usuario`: 15/15 aisladas y HTTP principal; `rol` pendiente** | Registros fases 4 y 5 |
+| Administración y catálogo | **`usuario`: 28/28 aisladas y HTTP principal; `rol_usuario`: 15/15 aisladas y HTTP principal; `rol`: 6 escenarios aislados, GET listado/ficha 200 y escrituras 405 `Allow: GET`** | Registros fases 4, 5 y 7 |
 | Verificación de contraseña con `password_verify()` | **Comprobado en login real y suite de login**; auditoría de almacenamiento/hash de todos los usuarios pendiente | `REGISTRO_FASE2_LOGIN.md` |
 | Frontend `usuario` y `rol_usuario` | **Comprobado parcialmente:** alta/edición/contraseña/baja lógica, asignación/duplicado/retiro/restauración, `consulta` restringido y revocación durante sesión abierta | `REGISTRO_FASE6_FRONTEND.md` y capturas del estudiante (13-11-2026) |
 | Acceso de demostración en `/login` | **Comprobado parcialmente:** sintaxis PHP válida, tarjeta visible y login con cuenta administrativa existente | Registro de 16-11; no se probó aún modo deshabilitado ni despliegue público |
@@ -445,7 +483,7 @@ git ls-files .env.example
 | API apagada / frontend activo | Pendiente | — |
 | Ausencia de secretos versionados | Pendiente | — |
 
-> Hay evidencia de login, middleware y HTTP 403 de `consulta` real sobre rutas escogidas. No concluir que los 16 CRUD ni el CRUD `rol` estén probados, que la protección del último admin esté aceptada ni que la v3 esté cerrada.
+> Hay evidencia de login, middleware y HTTP 403 de `consulta` real sobre rutas escogidas. No concluir que los 16 recursos de v1/v2 ni el CRUD de `usuario` y las operaciones de `rol_usuario` estén probados exhaustivamente. El catálogo `rol` cuenta con evidencia acotada de solo lectura. La protección del último admin y la v3 global siguen sin cierre.
 
 ## 9. Pruebas negativas con evidencia HTTP y estado de base (pendientes de ejecutar)
 
@@ -470,13 +508,13 @@ try {
 
 | Caso | Estado documental actual | Comprobante a aportar |
 |---|---|---|
-| Base nueva con roles semilla y bootstrap | **Probado en Compose aislado**: un admin activo, un rol `admin`, hash 60; **login HTTP de esa instancia pendiente** | Logs sanitizados, JOIN y COUNT SQL |
+| Base nueva con roles semilla y bootstrap | **Probado en Compose aislado**: roles semilla y un admin activo con hash de longitud 60; **login HTTP de esa instancia pendiente** | Logs sanitizados, JOIN y COUNT SQL |
 | Base persistente con roles y admin inicial | **Probado en Compose habitual**: reconoció el admin previo y terminó con código 0 | Salida CLI, SELECT de roles y asociación sin hash |
 | Repetir bootstrap | **Probado en Compose aislado**: mensaje de cuenta existente; no se duplicó usuario | Repetición CLI, COUNT 1; comparar hash antes/después sigue por hacer |
 | Credenciales iniciales faltantes | Diseñado; no probado | Proceso falla cerrado sin valor por defecto |
 | Token alterado/expirado/algoritmo inesperado | **Suite de login 15/15 y middleware 28/28**; faltan solicitudes HTTP específicas | 401 y ningún efecto lateral |
 | Permisos admin/consulta en 16 recursos | **Lógica probada automatizadamente** y un recurso con admin por HTTP; matriz HTTP completa pendiente | Matriz de métodos, 200/204 o 403 según caso |
-| CRUD de las tres tablas de seguridad | `usuario` y `rol_usuario` cuentan con pruebas acotadas backend/frontend; **`rol` de Miguel pendiente de integración y evidencia** | 201, 404, 409, 422 y cambio del estado real, completando matriz |
+| Recursos de seguridad | `usuario` y `rol_usuario` cuentan con pruebas acotadas backend/frontend; `rol` es catálogo fijo y cuenta con pruebas aisladas, HTTP y frontend limitadas | Evidencia de GET 200, escrituras 405 `Allow: GET`; sigue pendiente GET de `consulta` → 403 y regresión global |
 | Tarjeta demo en login | Sintaxis, aparición y acceso administrativo con credenciales reales probados; modo oculto pendiente de verificación | No grabar secretos en documentación ni screenshots |
 | Logout y API apagada | Logout implementado en código; prueba integral en navegador y API caída pendientes | Evidencia de sesión/cookie limpia y página sin datos cuando API falla |
 

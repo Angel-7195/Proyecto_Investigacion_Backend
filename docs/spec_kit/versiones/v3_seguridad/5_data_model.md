@@ -1,5 +1,7 @@
 # Modelo de datos — v3: usuarios, roles y asignaciones
 
+> **Actualización — 19-11-2026:** el esquema de las tres tablas no cambia. El catálogo funcional de `rol` queda limitado a los dos registros semilla `admin` y `consulta`; la API solo los consulta y no permite mutaciones. `activo` y `fecha_creacion` se conservan por el DDL, pero no son campos editables. El catálogo y su evidencia HTTP/frontend están en [REGISTRO_FASE7_CATALOGO_ROL_20261119.md](REGISTRO_FASE7_CATALOGO_ROL_20261119.md).
+
 > **Seguimiento — 16-11-2026:** en una base **nueva y aislada** se constató `usuario` con una sola fila `ADMIN`, `activo=1`, vínculo con rol `admin` y longitud 60 de la columna de hash. El inicializador no duplicó cuentas al repetirse. La verificación integral `SHOW CREATE TABLE` sigue pendiente; estos SELECT **no** sustituyen una auditoría DDL ni un login contra esa base. Ver [REGISTRO_BOOTSTRAP_Y_LOGIN_DEMO_20261116.md](REGISTRO_BOOTSTRAP_Y_LOGIN_DEMO_20261116.md).
 
 > **Actualización de evidencia — 12-11-2026, fase 5:** gestión principal de `rol_usuario` comprobada por **15/15** pruebas aisladas y HTTP real: asignación `201`, ficha `200`, duplicado `409`, retiro `200`, ficha posterior `404`. Un usuario `consulta` real obtuvo GET V1 `200`, POST V1 `403` y GET administrativo `403`; tras retirar el rol, **el mismo JWT** pasó a GET `403`. SQL confirmó usuario sin rol aún activo y `ADMIN` con `admin`. La protección del último administrador **queda pendiente de prueba final solo en base descartable**, sin arriesgar el volumen local. Ver [REGISTRO_FASE5_ROL_USUARIO.md](REGISTRO_FASE5_ROL_USUARIO.md).
@@ -19,7 +21,7 @@
 | `activo` | `TINYINT(1)` | `DEFAULT 1`; **admite `NULL`** (no se declaró `NOT NULL`) |
 | `fecha_creacion` | `DATETIME` | `DEFAULT CURRENT_TIMESTAMP` |
 
-La API de v3 podrá administrar roles. **Decisión documentada para v3:** añadir al `init.sql` los registros de rol `admin` y `consulta` con descripciones (no secretos), dejando a MariaDB generar sus IDs; el estudiante **ya añadió** estos `INSERT` a su `db/init.sql` en la rama de v3; su ejecución en un volumen completamente nuevo **no se ha probado**. La base en ejecución puede tener roles preexistentes y se debe consultar antes de aplicar la inicialización.
+La tabla conserva su estructura original, pero la aplicación **no ofrece CRUD de roles**. El catálogo de acceso de v3 está formado por `admin` y `consulta`, sembrados por nombre (sin IDs fijos) y con descripciones no sensibles. La API solo permite listarlos y consultar una ficha; no admite crear, reemplazar, actualizar ni retirar roles. La columna `activo` permanece por compatibilidad con el DDL y se utiliza como filtro interno (`activo = 1`); no se recibe ni modifica desde el cliente. La prueba local del catálogo se registra en `REGISTRO_FASE7_CATALOGO_ROL_20261119.md`.
 
 ## 2. Tabla `usuario`
 
@@ -80,14 +82,14 @@ Esta es una relación muchos a muchos, con registro de asignación identificable
 
 ## 5. Datos iniciales y arranque del primer administrador
 
-- El `init(4).sql` original **no contenía INSERT de seguridad**; en el `db/init.sql` modificado por el estudiante ya se añadieron `admin` y `consulta` como datos semilla, pero no se almacena ninguna cuenta administradora ni contraseña en SQL.
+- El `init(4).sql` original **no contenía INSERT de seguridad**; en el `db/init.sql` modificado por el estudiante se añadieron únicamente `admin` y `consulta` como datos semilla del catálogo fijo, pero no se almacena ninguna cuenta administradora ni contraseña en SQL.
 - La ausencia de INSERT en el archivo **no prueba que una base MariaDB ya utilizada esté vacía**: comprobar con `SELECT COUNT(*)` en el entorno real.
-- **C5: diseño aprobado y primera ejecución manual satisfactoria:** `init.sql` ya incluye las semillas `admin` y `consulta` en la rama del estudiante. Un script PHP solo consola obtuvo las credenciales del entorno y creó el primer `usuario` con hash y la relación `rol_usuario`. No hay `id` ni contraseña fija de administrador en el SQL.
+- **C5: diseño aprobado y ejecución local probada:** `init.sql` incluye las semillas fijas `admin` y `consulta`. Un script PHP solo consola obtiene las credenciales del entorno y crea el primer `usuario` con hash y la relación `rol_usuario`. No hay `id` ni contraseña fija de administrador en el SQL. La API no permite ampliar ni modificar el catálogo.
 - **Control en volumen existente:** `init.sql` solo se ejecuta al crear el volumen. El mismo procedimiento de bootstrap deberá asegurar roles idempotentemente por nombre en instalaciones previas, sin usar `down -v`; si detecta un administrador válido, no toca su contraseña ni añade otro.
 - **Control ante datos ambiguos:** un usuario existente con mismo username/email pero sin privilegios no se promueve automáticamente a admin; el procedimiento se detiene. Toda consulta operativa de permisos requiere usuario y rol activos (`activo = 1`).
 - En lectura y autorización se recomienda considerar activo **solo si `activo = 1`**. La API no debe confiar en `NULL` ni otorgar permisos por valores ambiguos. El contrato debe impedir escribir `activo` manualmente desde el frontend.
 
-### Especificación del delta de semillas (agregado al archivo local; arranque limpio no probado)
+### Especificación del delta de semillas (agregado al archivo local; probado en volumen aislado nuevo)
 
 El nuevo bloque que **se propone** añadir a `db/init.sql` es:
 
@@ -130,18 +132,20 @@ SELECT COUNT(*) AS total_asignaciones FROM rol_usuario;
 
 Estas consultas **no alteran datos**. No ejecutar `docker compose down -v` en un proyecto con información que deba conservarse: elimina los volúmenes y puede borrar la base de datos persistida.
 
-**Estado:** DDL del `init.sql` identificado; C3 y C5 cuentan con acuerdo. Se observó el admin en la base habitual, se creó sobre un volumen aislado nuevo y se repitió el inicializador sin duplicar cuentas. Faltan escenarios negativos, prueba de login de la instancia aislada y cotejo completo de estructura mediante `SHOW CREATE TABLE`. Siguen pendientes la integración del catálogo `rol`, la regresión y la verificación completa de la base instalada.
+**Estado:** DDL del `init.sql` identificado; C3 y C5 cuentan con acuerdo. Se observó el admin en la base habitual, se creó sobre un volumen aislado nuevo y se repitió el inicializador sin duplicar cuentas. El catálogo fijo `rol` quedó integrado como solo lectura y probado localmente el 19-11-2026. Faltan escenarios negativos, prueba de login de la instancia aislada y cotejo completo de estructura mediante `SHOW CREATE TABLE`; la regresión y la verificación completa de la base instalada continúan pendientes.
 
-## 8. Matriz de invariantes del SQL para los CRUD administrativos
+## 8. Matriz de invariantes del SQL y operaciones administrativas
 
-| Operación | Restricción exacta comprobada en `init(4).sql` | Prueba esperada |
+| Operación | Restricción exacta comprobada en `init(4).sql` | Contrato / prueba |
 |---|---|---|
 | POST de usuario | `username UNIQUE`, `email UNIQUE`, `password NOT NULL` | Duplicado → 409; contraseña almacenada solo como hash |
-| POST de rol | `nombre UNIQUE NOT NULL` | Duplicado → 409; `id` generado por la base |
+| GET de rol | `nombre UNIQUE NOT NULL`; `id` autoincremental; `activo` filtra los registros visibles | Solo catálogo `admin`/`consulta`; GET colección/ficha para admin |
+| POST/PUT/PATCH/DELETE de rol | El DDL permite persistencia, pero el contrato de aplicación no expone mutaciones | `405` y `Allow: GET`; no existe alta, edición ni retiro desde la API |
 | POST de asignación | PK `(usuario_id, rol_id)` y dos FK | Duplicado → 409; FK inexistente → conflicto documentado |
-| Retiro de usuario/rol | Campo `activo` existente, pero nullable en DDL | Solo `activo = 1` concede acceso; retirada lógica conserva fila |
-| Retiro de asignación | No existe campo `activo`; `ON DELETE CASCADE` solo para bajas físicas de padres | **Acordado C8:** DELETE físico solo del vínculo; por implementar |
-| Actualización de asignación | Dos columnas, ambas integrantes de la PK | **Acordado C8:** PUT/PATCH `405`; por implementar |
+| Retiro de usuario | Campo `activo` existente, nullable en DDL | Solo `activo = 1` concede acceso; retirada lógica conserva fila |
+| Retiro de rol | La columna `activo` permanece en el esquema | No existe operación de retiro en la API; el catálogo se mantiene fijo |
+| Retiro de asignación | No existe campo `activo`; `ON DELETE CASCADE` solo para bajas físicas de padres | **Acordado C8:** DELETE físico solo del vínculo |
+| Actualización de asignación | Dos columnas, ambas integrantes de la PK | **Acordado C8:** PUT/PATCH `405` |
 
 **Verificación de base utilizada:** DDL verificado documentalmente en `init(4).sql`; los `SELECT` de rol y asignación de administrador **sí se realizaron** en la BD local, pero todavía falta comparar las tablas completas con `SHOW CREATE TABLE`. Para una instalación con volumen persistente, los cambios en `init.sql` no se reproducen automáticamente. La inserción de los roles y el primer admin debe tener una operación idempotente que no dependa de ejecutar `down -v`.
 

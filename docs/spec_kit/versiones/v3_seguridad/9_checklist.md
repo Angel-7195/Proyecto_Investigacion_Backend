@@ -1,5 +1,7 @@
 # Checklist de requisitos y cierre — v3: Investigación
 
+> **Actualización de evidencia — 19-11-2026, catálogo fijo `rol`:** backend con GET listado/ficha, escrituras bloqueadas con `405`/`Allow: GET`, prueba aislada con salida `6 escenarios aislados de rol aprobados` y frontend mostrando `admin`/`consulta` sin acciones. `rol_usuario` se conserva y su suite sigue en `15/15`. No se probó en esta actualización el GET de `rol` con `consulta` ni la regresión completa. Ver [REGISTRO_FASE7_CATALOGO_ROL_20261119.md](REGISTRO_FASE7_CATALOGO_ROL_20261119.md). Las firmas y compuertas humanas siguen abiertas.
+
 > **Actualización de pruebas locales — 16-11-2026:** inicializador automático Docker con MariaDB saludable, cuenta única de ADMIN en volumen nuevo aislado y reintento sin duplicados; en el volumen habitual el inicializador finalizó sin modificar el admin existente. Se comprobó la tarjeta demo del frontend, sintaxis PHP y acceso real cuando coincidían las credenciales. Ver [REGISTRO_BOOTSTRAP_Y_LOGIN_DEMO_20261116.md](REGISTRO_BOOTSTRAP_Y_LOGIN_DEMO_20261116.md). **El checklist de aceptación y las firmas humanas siguen abiertos.**
 
 > **Evidencia nueva — 13-11-2026:** pruebas manuales de frontend de `usuario` y `rol_usuario`, control de menú, restricción directa, revocación de sesión con rol retirado, SQL del único administrador activo y recuperación de acceso al restaurar `consulta`. Véase [REGISTRO_FASE6_FRONTEND.md](REGISTRO_FASE6_FRONTEND.md). **No se firman compuertas, ni se aprueba la regresión completa, ni se considera terminada la V3 por este registro.**
@@ -17,7 +19,7 @@ Esta parte adapta `9_checklist.md` del ejemplo `v3_segundo_motor`: valida **docu
 ## A. Calidad de la especificación (COMPUERTA 3)
 
 - [ ] Cada requisito de `2_spec.md` es único, medible y permite una prueba concreta.
-- [ ] C1–C13 están resueltas o verificadas por escrito y se reflejan en `3_plan.md`, `5_data_model.md`, `6_contracts.md` (C13 afecta la interfaz, no el esquema).
+- [ ] C1–C13 están resueltas o verificadas por escrito y se reflejan en `3_plan.md`, `5_data_model.md`, `6_contracts.md` (C3 precisa el catálogo fijo `admin`/`consulta`, solo GET; C13 afecta la interfaz, no el esquema).
 - [ ] La política de permisos para las 16 rutas y los 3 recursos administrativos está aprobada y sin huecos.
 - [ ] Los nombres y tipos del script `init(4).sql` están documentados en `5_data_model.md`.
 - [ ] Está previsto cotejar el esquema de la BD en ejecución con ese script antes de implementar.
@@ -46,7 +48,7 @@ Esta parte adapta `9_checklist.md` del ejemplo `v3_segundo_motor`: valida **docu
 | Bootstrap de `admin` y `consulta` | Alta CLI, Docker automático, volumen nuevo aislado y segundo intento, JOIN/COUNT en MariaDB | Fallo seguro ante configuración inválida, base V2 poblada y adaptación a AlwaysData |
 | Tarjeta de demostración | Login PHP sin error de sintaxis, aviso visible y acceso ADMIN cuando las credenciales coincidieron con DB | Modo oculto, entorno incompleto, auditoría de Git y uso público seguro |
 | Login / JWT | 15/15 suite, HTTP 200 de `ADMIN`, JWT de 3600 s | Todos los casos HTTP de errores y seguridad de secretos en Git |
-| Middleware / roles | 28/28 suite; 401 sin Bearer y 200 con Bearer en `/api/area_conocimiento` | Matriz real de 16 CRUD y 403 con usuario real `consulta` |
+| Middleware / roles | 28/28 suite; 401 sin Bearer y 200 con Bearer en `/api/area_conocimiento`; catálogo `rol` con GET 200 y escrituras 405 `Allow: GET` con token admin | Matriz real de 16 CRUD y GET `/api/rol` con usuario `consulta` → 403 |
 | CRUD `usuario` | 28/28 suite; GET/POST/PUT/PATCH/PATCH password/DELETE por HTTP; 409 duplicados; 401 sin JWT; SQL `activo=0` y formato hash `$2y$` | Rechazo del último admin en base real, `password_verify()` directo de clave nueva, 403 con `consulta`, cobertura de 422 y regresión |
 | Backend sintáctico | `php -l` sin errores en los archivos registrados | Ausencia de errores de lógica o regresiones |
 
@@ -75,19 +77,19 @@ Las secciones B–G **no cuentan** para aprobar anticipadamente la calidad de la
 - [ ] Una cuenta de consulta recibe 403 al intentar POST de cualquiera de los 16 recursos previos.
 - [ ] Una cuenta de consulta recibe 403 en PUT, PATCH y DELETE de cualquiera de los 16 recursos.
 - [ ] La denegación no causa escrituras parciales ni cambios en BD.
-- [ ] Solo admin puede llamar a los endpoints de `usuario`, `rol` y `rol_usuario`.
+- [ ] Solo admin puede llamar a los endpoints de `usuario` y `rol_usuario`, y consultar por GET el catálogo `rol`; `consulta` debe recibir `403` al intentar acceder a `rol`.
 - [ ] Un usuario sin permiso no obtiene éxito por escribir directamente la URL o fabricar una petición HTTP.
 - [ ] El router distingue 401/403 de los errores preexistentes de negocio 400/404/409/422.
 
-## D. CRUD de administración y modelo
+## D. Administración y modelo
 
 - [ ] `usuario`: listar, consultar, crear, reemplazar, actualizar y retirar conforme a contrato real.
-- [ ] `rol`: listar, consultar, crear, reemplazar, actualizar y retirar conforme a contrato real.
-- [ ] `rol_usuario`: operaciones aprobadas cubren alta, consulta, cambio de asignación y retiro sin violar FK.
+- [ ] `rol`: listar y consultar únicamente; `POST`, `PUT`, `PATCH` y `DELETE` responden `405` con `Allow: GET` para admin.
+- [ ] `rol_usuario`: operaciones aprobadas cubren alta, consulta y retiro del vínculo sin violar FK; PUT/PATCH responden `405`.
 - [ ] Se han probado llaves duplicadas y violaciones de integridad con respuesta contractual.
-- [ ] Usuario y rol retirados conservan fila con `activo=FALSE` y no salen en GET normal.
+- [ ] Usuario retirado conserva fila con `activo=FALSE` y no sale en GET normal. El catálogo `rol` conserva `activo` en el DDL, pero no ofrece una operación API para editarlo o retirar roles.
 - [ ] Ningún POST/PUT/PATCH modifica `activo` directamente si no está permitido por contrato.
-- [ ] La baja de un rol o usuario no deja acceso no autorizado ni integridad incoherente.
+- [ ] La retirada de una asignación `rol_usuario` o de un usuario no deja acceso no autorizado ni integridad incoherente.
 - [ ] El `init.sql` conserva estructura original salvo ajustes mínimos justificados y numerados; los roles `admin` y `consulta` quedan agregados como **semillas no sensibles**.
 - [ ] Los roles semilla se crean en una BD nueva y se aseguran de forma idempotente en un volumen existente, sin `down -v` ni duplicados.
 - [ ] El primer administrador está creado con hash, asociación por ID real, transacción y datos suministrados fuera de Git.
@@ -126,10 +128,24 @@ Las secciones B–G **no cuentan** para aprobar anticipadamente la calidad de la
 - [x] SQL de lectura: `ADMIN` activo con rol `admin`, usuario 4 activo sin rol.
 - [ ] Proteger último administrador en BD descartable; no tocar la cuenta real `ADMIN`.
 - [ ] Verificar por HTTP FK inexistentes/inactivas, PUT/PATCH 405, segundo DELETE y datos inválidos.
-- [ ] Probar matriz completa, módulo `rol` de Miguel y regresión V1/V2. El **flujo principal del frontend** de `usuario` y `rol_usuario` sí cuenta con evidencia específica de 13-11-2026, pero no cubre toda esta sección.
+- [ ] Probar la matriz completa, incluida la denegación de `consulta` sobre `GET /api/rol`, y la regresión V1/V2. El **flujo principal del frontend** de `usuario` y `rol_usuario` cuenta con evidencia específica de 13-11-2026, y el catálogo `rol` tiene evidencia acotada del 19-11-2026; ninguna de estas pruebas cubre toda esta sección.
 
 **Fuente:** `REGISTRO_FASE5_ROL_USUARIO.md`; no se marcan por IA las compuertas de aprobación humanas.
 
+
+### D.4. Evidencia del catálogo fijo `rol` (19-11-2026; no firma la sección D)
+
+- [x] Suite aislada de `/app/pruebas/prueba_rol_aislada.php`: sintaxis correcta y salida `6 escenarios aislados de rol aprobados`.
+- [x] Suite de regresión aislada de `rol_usuario`: `15 / 15` escenarios; no se modificó el módulo.
+- [x] `GET /api/rol` con token admin: `200`.
+- [x] `GET /api/rol/1`: `200`, nombre `admin`; `GET /api/rol/2`: `200`, nombre `consulta` (IDs observados solo en la instancia local).
+- [x] `POST /api/rol`: `405`, cabecera `Allow: GET`.
+- [x] `PUT`, `PATCH` y `DELETE /api/rol/999999`: `405`, cabecera `Allow: GET`; DELETE se repitió con el encabezado Bearer.
+- [x] Pantalla del catálogo: dos filas (`admin` y `consulta`), columnas ID/Nombre/Descripción y sin botones de escritura.
+- [ ] Probar por HTTP `GET /api/rol` con una cuenta `consulta` y confirmar `403`; la política está definida por C4, pero no se ejecutó en esta actualización.
+- [ ] Completar la regresión global de v1/v2 y las demás comprobaciones de cierre.
+
+**Fuente:** [REGISTRO_FASE7_CATALOGO_ROL_20261119.md](REGISTRO_FASE7_CATALOGO_ROL_20261119.md). Los IDs 1/2 y 999999 son valores de la prueba local, no constantes para otras instalaciones.
 
 ## E. Frontend y separación
 
@@ -138,7 +154,7 @@ Las secciones B–G **no cuentan** para aprobar anticipadamente la calidad de la
 - [x] Se llama a `session_regenerate_id(true)` después del login correcto: **revisado en código**, falta inspección de cookie en navegador.
 - [ ] Logout limpia sesión y cookie en código; **pendiente verificar en navegador** que ninguna llamada posterior envía el token antiguo.
 - [x] El menú `consulta` no presenta escritura ni acceso a gestión; visita directa a `/roles-usuarios` fue rechazada.
-- [ ] El menú admin muestra usuarios y roles por usuario, **pero falta el CRUD del catálogo `rol` de Miguel** para satisfacer los tres recursos de V3.
+- [ ] El menú admin muestra usuarios, catálogo `Roles` de solo lectura y `Roles por usuario`; la pantalla de catálogo no debe mostrar acciones de escritura.
 - [x] Error de permiso visible en español tras revocar un rol y mensaje genérico de login sin rol: **casos concretos probados**, no toda la matriz 401/403.
 - [x] Los formularios de contraseña revisados no reimprimen los valores tras un error: **revisión de código**, no auditoría de todas las vistas.
 - [ ] No hay PDO, credenciales MariaDB ni `require` de código backend en frontend.
@@ -154,7 +170,7 @@ Las secciones B–G **no cuentan** para aprobar anticipadamente la calidad de la
 - [x] Sesión abierta de Mariana pierde acceso tras retirar `consulta`; recuperación después de reasignación y nuevo login con **218** registros visibles.
 - [x] Protección visual del último administrador y SQL que muestra a `ADMIN` como único admin activo.
 - [ ] Rechazo HTTP real a retiro del último admin en **BD descartable**; no poner en riesgo `ADMIN` del volumen habitual.
-- [ ] API caída, validación adversarial de CSRF, integración dinámica de catálogo `rol` y regresión general V1/V2.
+- [ ] API caída, validación adversarial de CSRF, comprobación del selector dentro de `/roles-usuarios` y regresión general V1/V2.
 
 **Evidencia y límites:** [REGISTRO_FASE6_FRONTEND.md](REGISTRO_FASE6_FRONTEND.md). Las casillas E.1 certifican solo pruebas acotadas o inspección de código, **no** la aceptación de toda la sección E.
 
@@ -189,6 +205,7 @@ Las secciones B–G **no cuentan** para aprobar anticipadamente la calidad de la
 - [ ] La documentación distingue el arranque automático Docker de la ejecución CLI manual necesaria en hosting sin Docker, y el modo demo expone credenciales **solo** en una instalación desechable.
 - [ ] Hay evidencias de todas las pruebas principales y no contienen credenciales ni tokens completos.
 - [ ] El mapa de versiones coincide con el alcance autorizado para v1-v4.
+- [ ] `2_spec.md`, `3_plan.md`, `5_data_model.md` y `6_contracts.md` describen `rol` como catálogo fijo de solo lectura, sin restos de requisitos CRUD.
 - [ ] `8_tasks.md` refleja los trabajos realizados y responsables reales.
 - [ ] PR revisados, commits individuales claros, y solo el integrador integró a `main`.
 - [ ] Se creó tag `v3` en `main` únicamente después de pasar criterios y regresión.
