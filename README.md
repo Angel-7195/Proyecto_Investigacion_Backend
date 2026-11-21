@@ -3,6 +3,8 @@
 **Versión actual: V3 — Seguridad y administración de usuarios
 
 - Pagina Desplegada con AlwaysData: https://proyectoinvestigacion.alwaysdata.net/
+- Usuario: ADMIN
+- Contraseña: administrator123
 
 - **Backend:**
   https://github.com/Angel-7195/Proyecto_Investigacion_Backend.git
